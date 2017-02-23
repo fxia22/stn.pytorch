@@ -6,10 +6,9 @@ from functions.gridgen import GridGenFunction
 
 
 class GridGen(Module):
-    def __init__(self, height, width):
+    def __init__(self, height, width, lr = 1):
         super(GridGen, self).__init__()
         self.height, self.width = height, width
-        self.f = GridGenFunction(self.height, self.width)
-        print self.f
+        self.f = GridGenFunction(self.height, self.width, lr=lr)
     def forward(self, input):
         return self.f(input)

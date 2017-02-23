@@ -4,8 +4,9 @@ from torch.autograd import Function
 import numpy as np
 
 class GridGenFunction(Function):
-    def __init__(self, height, width):
+    def __init__(self, height, width,lr=1):
         super(GridGenFunction, self).__init__()
+        self.lr = lr
         self.height, self.width = height, width
         self.grid = np.zeros( [self.height, self.width, 3], dtype=np.float32)
         self.grid[:,:,0] = np.expand_dims(np.repeat(np.expand_dims(np.arange(-1, 1, 2.0/self.height), 0), repeats = self.width, axis = 0).T, 0)
@@ -38,4 +39,4 @@ class GridGenFunction(Function):
             #print grad_input1.size()
         else:
             print 'not implemented'
-        return grad_input1
+        return grad_input1 * self.lr
