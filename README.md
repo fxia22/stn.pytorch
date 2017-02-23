@@ -1,9 +1,13 @@
-# PyTorch C FFI examples
+# PyTorch version of spatial transformer network
 
-In this repository you can find examples showing how to extend PyTorch with
-custom C code. To use the ffi you need to install the `cffi` package from pip.
+Ported from https://github.com/qassemoquab/stnbhwd according to pytorch tutorial. Now only support CPU. To use the ffi you need to install the `cffi` package from pip.
 
-Currently there are two examples:
-* `package` - a pip distributable package
-* `script` - compiles the code into a local module, that can be later imported
-    from other files
+# build and test
+
+```
+cd script
+python build.py
+python test.py
+```
+
+There is a demo in `test_stn.ipynb`
