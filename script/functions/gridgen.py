@@ -62,13 +62,20 @@ class CylinderGridGenFunction(Function):
         if not self.input1.is_cuda:
             for i in range(self.input1.size(0)):
                   
-                if int(np.floor(self.width*self.input1[i][0])) == self.width:
-                    output[i,:,:,1] = self.grid[:,:,1] + self.grid[:,:int(np.floor(self.width*self.input1[i][0])),2] * 2 * (1-self.input1[i][0])
-                elif int(np.floor(self.width*self.input1[i][0])) == 0:
-                    output[i,:,:,1] = self.grid[:,:,1] + self.grid[:,int(np.floor((self.width)*self.input1[i][0])):,2] * 2 * (-self.input1[i][0])
-                else:    
-                    output[i,:,:,1] = self.grid[:,:,1] + torch.cat([self.grid[:,:int(np.floor(self.width*self.input1[i][0])),2] * 2 * (1-self.input1[i][0]), self.grid[:,int(np.floor((self.width)*self.input1[i][0])):,2] * 2 * (-self.input1[i][0])], 1)
-               
+ 
+                x = self.input1[i][0]
+                low = int(np.ceil(self.width*self.input1[i][0]))
+                frac =  self.width*self.input1[i][0] - low
+                interp =  frac * 2 * (1-x) + (1-frac) * 2 * (-x)
+                
+                output[i,:,:,1] = torch.zeros(self.grid[:,:,1].size())
+                if low <= self.width and low > 0: 
+                    output[i,:,:low,1].fill_(2*(1-x))
+                
+                if low < self.width and low >= 0:
+                    output[i,:,low:,1].fill_(2*(-x))
+                
+                output[i,:,:,1] = output[i,:,:,1] + self.grid[:,:,1]
                 output[i,:,:,0] = self.grid[:,:,0]
         else:
             print 'not implemented'
