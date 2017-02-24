@@ -20,4 +20,4 @@ There is a demo in `test_stn.ipynb`
 
 `CylinderGridGen` takes a `B*1` theta vector and generate a transformation grid to remap equirectangular images along x axis. 
 
-An example of the landscape of the loss function of a simple STN can be found in the demo.      
+An example of the landscape of the loss function of a simple STN with L1 Loss can be found in the demo.      
