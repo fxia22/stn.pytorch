@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 from modules.stn import STN
-from modules.gridgen import GridGen
+from modules.gridgen import AffineGridGen
 
 nframes = 64
 height = 64
@@ -22,7 +22,7 @@ input2.data.uniform_(-1,1)
 input = Variable(torch.from_numpy(np.array([[[0.8, 0.3, 1], [0.5, 0, 0]]], dtype=np.float32)), requires_grad = True)
 print input
 
-g = GridGen(64, 128)
+g = AffineGridGen(64, 128)
 out = g(input)
 print out.size()
 print out
