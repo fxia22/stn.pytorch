@@ -11,6 +11,7 @@ class AffineGridGen(Module):
         self.height, self.width = height, width
         self.aux_loss = aux_loss
         self.f = AffineGridGenFunction(self.height, self.width, lr=lr)
+        self.lr = lr
     def forward(self, input):
         if not self.aux_loss:
             return self.f(input)
@@ -32,6 +33,7 @@ class CylinderGridGen(Module):
         self.height, self.width = height, width
         self.aux_loss = aux_loss
         self.f = CylinderGridGenFunction(self.height, self.width, lr=lr)
+        self.lr = lr
     def forward(self, input):
         
         if not self.aux_loss:
