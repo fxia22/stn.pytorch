@@ -23,3 +23,12 @@ There is a demo in `test_stn.ipynb`
 `DenseAffineGridGen` takes a `B*H*W*6` tensor and do affine transformation for each pixel. Example of convolutional spatial transformer can be found in `test_conv_stn.ipynb`.
 
 An example of the landscape of the loss function of a simple STN with L1 Loss can be found in the demo.      
+
+# Train hacks
+- set a learning rate multiplier, 1e-3 or 1e-4 would work fine. 
+- add an auxiliary loss to regularized the difference of the affine transformation from identity mapping, to aviod sampling outside the original image. 
+
+# Complex grid demo
+STN is able to handle a complex grid, however, how to parameterize the grid is a problem.
+
+![image](stn.jpg)
