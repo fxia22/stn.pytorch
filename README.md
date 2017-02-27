@@ -20,4 +20,6 @@ There is a demo in `test_stn.ipynb`
 
 `CylinderGridGen` takes a `B*1` theta vector and generate a transformation grid to remap equirectangular images along x axis. 
 
+`DenseAffineGridGen` takes a `B*H*W*6` tensor and do affine transformation for each pixel. Example of convolutional spatial transformer can be found in `test_conv_stn.ipynb`.
+
 An example of the landscape of the loss function of a simple STN with L1 Loss can be found in the demo.      
