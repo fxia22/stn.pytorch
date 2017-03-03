@@ -88,11 +88,12 @@ class CylinderGridGenV2(Module):
 
         input_u = input.view(-1,1,1,1).repeat(1,self.height, self.width,1)
         #print(input_u.requires_grad, self.batchgrid)
-        output = Variable(torch.zeros(torch.Size([input.size(0)]) + self.grid.size()[:2] + torch.Size([2])), requires_grad = True)
-        for i in range(input.size(0)):
-            output[i,:,:,0] = self.batchgrid[i,:,:,0]
-            output[i,:,:,1] = torch.atan(torch.tan(np.pi/2.0*(self.batchgrid[i,:,:,1] + self.batchgrid[i,:,:,2] * input_u[i,:,:,:])))  /(np.pi/2)
+        
+        output0 = self.batchgrid[:,:,:,0:1]
+        output1 = torch.atan(torch.tan(np.pi/2.0*(self.batchgrid[:,:,:,1:2] + self.batchgrid[:,:,:,2:] * input_u[:,:,:,:])))  /(np.pi/2)
+        #print(output0.size(), output1.size())
 
+        output = torch.cat([output0, output1], 3)
         return output
 
 
@@ -181,7 +182,6 @@ class DenseAffine3DGridGen(Module):
 
         output = torch.cat([theta,phi], 3)
 
-
         return output
 
 
@@ -242,16 +242,16 @@ class DenseAffine3DGridGen_rotate(Module):
         #print(r)
         theta = torch.acos(z/r)/(np.pi/2)  - 1
         #phi = torch.atan(y/x)
-        phi = torch.atan(y/(x)) * x.ne(0).type(torch.FloatTensor) + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
+        phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
         phi = phi/np.pi
 
         input_u = input2.view(-1,1,1,1).repeat(1,self.height, self.width,1)
 
         output = torch.cat([theta,phi], 3)
-        #print(input_u)
-        for i in range(input1.size(0)):
-            output[i,:,:,1] = torch.atan(torch.tan(np.pi/2.0*(output[i,:,:,1] + self.batchgrid[i,:,:,2] * input_u[i,:,:,:])))  /(np.pi/2)
 
-        return output
+        output1 = torch.atan(torch.tan(np.pi/2.0*(output[:,:,:,1:2] + self.batchgrid[:,:,:,2:] * input_u[:,:,:,:])))  /(np.pi/2)
+        output2 = torch.cat([output[:,:,:,0:1], output1], 3)
+        
+        return output2
 
 
