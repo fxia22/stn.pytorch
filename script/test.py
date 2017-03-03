@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 from modules.stn import STN
-from modules.gridgen import AffineGridGen, CylinderGridGen
+from modules.gridgen import AffineGridGen, CylinderGridGen, CylinderGridGenV2, DenseAffine3DGridGen, DenseAffine3DGridGen_rotate
 
 nframes = 64
 height = 64
@@ -32,17 +32,30 @@ print input.grad
 
 
 #print input2.data
-s = STN()
-out = s(input1, input2)
+while False:
+    s = STN()
+    out = s(input1, input2)
 #print out
-out.backward(input1.data)
-print input1.grad.size()
+    out.backward(input1.data)
+    print input1.grad.size()
 
 
 input = Variable(torch.from_numpy(np.array([[3.6]], dtype=np.float32)), requires_grad = True)
 print input
 
-g = CylinderGridGen(64, 128, aux_loss = True)
-out, aux = g(input)
+g = CylinderGridGenV2(64, 128)
+g2 = DenseAffine3DGridGen(64,128)
+g3 = DenseAffine3DGridGen_rotate(64,128)
+iden = torch.from_numpy(np.array([[1,0,0,-0.1],[0,1,0,-0.1],[0,0,1,0]]).astype(np.float32))
+iden2 = iden.view(1,1,1,12).repeat(1,64,128,1)
+iden2 = Variable(iden2, requires_grad = True)
+input = input.repeat(16,1,1,1)
+iden2 = iden2.repeat(16,1,1,1)
+
+out = g(input)
 print out.size()
-print out
+out.backward(torch.rand(16,64,128,2))
+out = g2(iden2)
+out.backward(torch.rand(16,64,128,2))
+out = g3(iden2, input)
+out.backward(torch.rand(16,64,128,2))
