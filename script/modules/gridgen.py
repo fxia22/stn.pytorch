@@ -237,12 +237,12 @@ class DenseAffine3DGridGen_rotate(Module):
         y = torch.sum(torch.mul(self.batchgrid3d, input1[:,:,:,4:8]), 3)
         z = torch.sum(torch.mul(self.batchgrid3d, input1[:,:,:,8:]), 3)
         #print(x)
-        r = torch.sqrt(x**2 + y**2 + z**2)
+        r = torch.sqrt(x**2 + y**2 + z**2) + 1e-5
 
         #print(r)
         theta = torch.acos(z/r)/(np.pi/2)  - 1
         #phi = torch.atan(y/x)
-        phi = torch.atan(y/x)  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
+        phi = torch.atan(y/(x+1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
         phi = phi/np.pi
         #print(theta, theta.size())
         #print(theta,phi)
