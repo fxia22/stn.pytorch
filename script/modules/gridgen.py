@@ -88,7 +88,7 @@ class CylinderGridGenV2(Module):
 
         input_u = input.view(-1,1,1,1).repeat(1,self.height, self.width,1)
         #print(input_u.requires_grad, self.batchgrid)
-        
+
         output0 = self.batchgrid[:,:,:,0:1]
         output1 = torch.atan(torch.tan(np.pi/2.0*(self.batchgrid[:,:,:,1:2] + self.batchgrid[:,:,:,2:] * input_u[:,:,:,:])))  /(np.pi/2)
         #print(output0.size(), output1.size())
@@ -170,16 +170,15 @@ class DenseAffine3DGridGen(Module):
         y = torch.sum(torch.mul(self.batchgrid3d, input1[:,:,:,4:8]), 3)
         z = torch.sum(torch.mul(self.batchgrid3d, input1[:,:,:,8:]), 3)
         #print(x)
-        r = torch.sqrt(x**2 + y**2 + z**2)
+        r = torch.sqrt(x**2 + y**2 + z**2) + 1e-5
 
         #print(r)
         theta = torch.acos(z/r)/(np.pi/2)  - 1
         #phi = torch.atan(y/x)
-        phi = torch.atan(y/x)  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
+        phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
         phi = phi/np.pi
-        #print(theta, theta.size())
-        #print(theta,phi)
-
+        
+        
         output = torch.cat([theta,phi], 3)
 
         return output
@@ -237,7 +236,7 @@ class DenseAffine3DGridGen_rotate(Module):
         y = torch.sum(torch.mul(self.batchgrid3d, input1[:,:,:,4:8]), 3)
         z = torch.sum(torch.mul(self.batchgrid3d, input1[:,:,:,8:]), 3)
         #print(x)
-        r = torch.sqrt(x**2 + y**2 + z**2)
+        r = torch.sqrt(x**2 + y**2 + z**2) + 1e-5
 
         #print(r)
         theta = torch.acos(z/r)/(np.pi/2)  - 1
@@ -251,7 +250,7 @@ class DenseAffine3DGridGen_rotate(Module):
 
         output1 = torch.atan(torch.tan(np.pi/2.0*(output[:,:,:,1:2] + self.batchgrid[:,:,:,2:] * input_u[:,:,:,:])))  /(np.pi/2)
         output2 = torch.cat([output[:,:,:,0:1], output1], 3)
-        
+
         return output2
 
 
