@@ -301,7 +301,7 @@ class Depth3DGridGen(Module):
 
         y = self.batchgrid3d[:,:,:,1:2] * depth + trans1.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
         z = self.batchgrid3d[:,:,:,2:3] * depth
-        print(x.size(), y.size(), z.size())
+        #print(x.size(), y.size(), z.size())
         r = torch.sqrt(x**2 + y**2 + z**2) + 1e-5
 
         #print(r)
