@@ -254,3 +254,72 @@ class DenseAffine3DGridGen_rotate(Module):
         return output2
 
 
+class Depth3DGridGen(Module):
+    def __init__(self, height, width, lr = 1, aux_loss = False):
+        super(Depth3DGridGen, self).__init__()
+        self.height, self.width = height, width
+        self.aux_loss = aux_loss
+        self.lr = lr
+
+        self.grid = np.zeros( [self.height, self.width, 3], dtype=np.float32)
+        self.grid[:,:,0] = np.expand_dims(np.repeat(np.expand_dims(np.arange(-1, 1, 2.0/self.height), 0), repeats = self.width, axis = 0).T, 0)
+        self.grid[:,:,1] = np.expand_dims(np.repeat(np.expand_dims(np.arange(-1, 1, 2.0/self.width), 0), repeats = self.height, axis = 0), 0)
+        self.grid[:,:,2] = np.ones([self.height, width])
+        self.grid = torch.from_numpy(self.grid.astype(np.float32))
+
+        self.theta = self.grid[:,:,0] * np.pi/2 + np.pi/2
+        self.phi = self.grid[:,:,1] * np.pi
+
+        self.x = torch.sin(self.theta) * torch.cos(self.phi)
+        self.y = torch.sin(self.theta) * torch.sin(self.phi)
+        self.z = torch.cos(self.theta)
+
+        self.grid3d = torch.from_numpy(np.zeros( [self.height, self.width, 4], dtype=np.float32))
+
+        self.grid3d[:,:,0] = self.x
+        self.grid3d[:,:,1] = self.y
+        self.grid3d[:,:,2] = self.z
+        self.grid3d[:,:,3] = self.grid[:,:,2]
+
+
+    def forward(self, depth, trans0, trans1, rotate):
+        self.batchgrid3d = torch.zeros(torch.Size([depth.size(0)]) + self.grid3d.size())
+
+        for i in range(depth.size(0)):
+            self.batchgrid3d[i] = self.grid3d
+
+        self.batchgrid3d = Variable(self.batchgrid3d)
+
+        self.batchgrid = torch.zeros(torch.Size([depth.size(0)]) + self.grid.size())
+
+        for i in range(depth.size(0)):
+            self.batchgrid[i] = self.grid
+
+        self.batchgrid = Variable(self.batchgrid)
+
+        x = self.batchgrid3d[:,:,:,0:1] * depth + trans0.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+
+        y = self.batchgrid3d[:,:,:,1:2] * depth + trans1.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+        z = self.batchgrid3d[:,:,:,2:3] * depth
+        print(x.size(), y.size(), z.size())
+        r = torch.sqrt(x**2 + y**2 + z**2) + 1e-5
+
+        #print(r)
+        theta = torch.acos(z/r)/(np.pi/2)  - 1
+        #phi = torch.atan(y/x)
+        phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
+        phi = phi/np.pi
+        
+        #print(theta.size(), phi.size())
+
+        
+        input_u = rotate.view(-1,1,1,1).repeat(1,self.height, self.width,1)
+
+        output = torch.cat([theta,phi], 3)
+        #print(output.size())
+
+        output1 = torch.atan(torch.tan(np.pi/2.0*(output[:,:,:,1:2] + self.batchgrid[:,:,:,2:] * input_u[:,:,:,:])))  /(np.pi/2)
+        output2 = torch.cat([output[:,:,:,0:1], output1], 3)
+
+        return output2
+        
