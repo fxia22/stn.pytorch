@@ -4,7 +4,6 @@ from torch.autograd import Variable
 import numpy as np
 from functions.gridgen import AffineGridGenFunction, CylinderGridGenFunction
 
-
 class AffineGridGen(Module):
     def __init__(self, height, width, lr = 1, aux_loss = False):
         super(AffineGridGen, self).__init__()
@@ -338,4 +337,118 @@ class Depth3DGridGen(Module):
         output2 = torch.cat([output[:,:,:,0:1], output1], 3)
 
         return output2
+        
+        
+        
+        
+
+class Depth3DGridGen_with_mask(Module):
+    def __init__(self, height, width, lr = 1, aux_loss = False, ray_tracing = False):
+        super(Depth3DGridGen_with_mask, self).__init__()
+        self.height, self.width = height, width
+        self.aux_loss = aux_loss
+        self.lr = lr
+        self.ray_tracing = ray_tracing
+
+        self.grid = np.zeros( [self.height, self.width, 3], dtype=np.float32)
+        self.grid[:,:,0] = np.expand_dims(np.repeat(np.expand_dims(np.arange(-1, 1, 2.0/self.height), 0), repeats = self.width, axis = 0).T, 0)
+        self.grid[:,:,1] = np.expand_dims(np.repeat(np.expand_dims(np.arange(-1, 1, 2.0/self.width), 0), repeats = self.height, axis = 0), 0)
+        self.grid[:,:,2] = np.ones([self.height, width])
+        self.grid = torch.from_numpy(self.grid.astype(np.float32))
+
+        self.theta = self.grid[:,:,0] * np.pi/2 + np.pi/2
+        self.phi = self.grid[:,:,1] * np.pi
+
+        self.x = torch.sin(self.theta) * torch.cos(self.phi)
+        self.y = torch.sin(self.theta) * torch.sin(self.phi)
+        self.z = torch.cos(self.theta)
+
+        self.grid3d = torch.from_numpy(np.zeros( [self.height, self.width, 4], dtype=np.float32))
+
+        self.grid3d[:,:,0] = self.x
+        self.grid3d[:,:,1] = self.y
+        self.grid3d[:,:,2] = self.z
+        self.grid3d[:,:,3] = self.grid[:,:,2]
+
+
+    def forward(self, depth, trans0, trans1, rotate):
+        self.batchgrid3d = torch.zeros(torch.Size([depth.size(0)]) + self.grid3d.size())
+
+        for i in range(depth.size(0)):
+            self.batchgrid3d[i] = self.grid3d
+
+        self.batchgrid3d = Variable(self.batchgrid3d)
+
+        self.batchgrid = torch.zeros(torch.Size([depth.size(0)]) + self.grid.size())
+
+        for i in range(depth.size(0)):
+            self.batchgrid[i] = self.grid
+
+        self.batchgrid = Variable(self.batchgrid)
+        
+        if depth.is_cuda:
+            self.batchgrid = self.batchgrid.cuda()
+            self.batchgrid3d = self.batchgrid3d.cuda()
+            
+
+        x_ = self.batchgrid3d[:,:,:,0:1] * depth + trans0.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+
+        y_ = self.batchgrid3d[:,:,:,1:2] * depth + trans1.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+        z = self.batchgrid3d[:,:,:,2:3] * depth
+        #print(x.size(), y.size(), z.size())
+        
+        rotate_z = rotate.view(-1,1,1,1).repeat(1,self.height, self.width,1) * np.pi
+        
+        x = x_ * torch.cos(rotate_z) - y_ * torch.sin(rotate_z)
+        y = x_ * torch.sin(rotate_z) + y_ * torch.cos(rotate_z)
+         
+        
+        r = torch.sqrt(x**2 + y**2 + z**2) + 1e-5
+
+        #print(r)
+        theta = torch.acos(z/r)/(np.pi/2)  - 1
+        #phi = torch.atan(y/x)
+        
+        if depth.is_cuda:
+            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.cuda.FloatTensor) * (y.ge(0).type(torch.cuda.FloatTensor) - y.lt(0).type(torch.cuda.FloatTensor))        
+        else:
+            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
+        
+        
+        phi = phi/np.pi   
+        
+        if self.ray_tracing:
+            theta_np = theta.cpu().detach().data.numpy()
+            phi_np = phi.cpu().detach().data.numpy()
+            r_np = r.cpu().detach().data.numpy()
+            occupancy_min_r = np.ones(theta_np.shape) * 10000
+            occupancy_input = np.zeros(theta_np.shape)
+            occupancy = np.zeros(theta_np.shape)
+            threshold = 0.2
+            b, h, w, _ = theta_np.shape
+
+            for i in range(b):
+                for j in range(h):
+                    for k in range(w):
+                        idx1 = int((theta_np[i,j,k] + 1)/(2/float(h)))
+                        idx2 = int((phi_np[i,j,k] + 1)/(2/float(w)))
+                        if r_np[i,j,k,0] < occupancy_min_r[i,idx1,idx2]:
+                            occupancy_min_r[i,idx1,idx2] = r_np[i,j,k,0]
+                            occupancy[i,idx1-1:idx1+1,idx2-1:idx2+1] = 1
+
+
+            for i in range(b):
+                for j in range(h):
+                    for k in range(w):
+                        idx1 = int((theta_np[i,j,k] + 1)/(2/float(h)))
+                        idx2 = int((phi_np[i,j,k] + 1)/(2/float(w)))
+                        if r_np[i,j,k,0] > occupancy_min_r[i,idx1,idx2]  + threshold:
+                            occupancy_input[i,j,k] = 1
+                            
+            output = torch.cat([theta,phi], 3)
+            return output, occupancy, occupancy_input
+
+        else:
+            output = torch.cat([theta,phi], 3)
+            return output
         
