@@ -4,6 +4,8 @@ from torch.autograd import Variable
 import numpy as np
 from functions.gridgen import AffineGridGenFunction, CylinderGridGenFunction
 
+from ray import ray_tracing_v2, ray_tracing, ray_tracing_v1
+
 class AffineGridGen(Module):
     def __init__(self, height, width, lr = 1, aux_loss = False):
         super(AffineGridGen, self).__init__()
@@ -418,32 +420,17 @@ class Depth3DGridGen_with_mask(Module):
         phi = phi/np.pi   
         
         if self.ray_tracing:
-            theta_np = theta.cpu().detach().data.numpy()
-            phi_np = phi.cpu().detach().data.numpy()
-            r_np = r.cpu().detach().data.numpy()
-            occupancy_min_r = np.ones(theta_np.shape) * 10000
-            occupancy_input = np.zeros(theta_np.shape)
-            occupancy = np.zeros(theta_np.shape)
-            threshold = 0.2
-            b, h, w, _ = theta_np.shape
-
-            for i in range(b):
-                for j in range(h):
-                    for k in range(w):
-                        idx1 = int((theta_np[i,j,k] + 1)/(2/float(h)))
-                        idx2 = int((phi_np[i,j,k] + 1)/(2/float(w)))
-                        if r_np[i,j,k,0] < occupancy_min_r[i,idx1,idx2]:
-                            occupancy_min_r[i,idx1,idx2] = r_np[i,j,k,0]
-                            occupancy[i,idx1-1:idx1+1,idx2-1:idx2+1] = 1
-
-
-            for i in range(b):
-                for j in range(h):
-                    for k in range(w):
-                        idx1 = int((theta_np[i,j,k] + 1)/(2/float(h)))
-                        idx2 = int((phi_np[i,j,k] + 1)/(2/float(w)))
-                        if r_np[i,j,k,0] > occupancy_min_r[i,idx1,idx2]  + threshold:
-                            occupancy_input[i,j,k] = 1
+            theta_np = theta[:,:,:,0].cpu().detach().data.numpy()
+            phi_np = phi[:,:,:,0].cpu().detach().data.numpy()
+            r_np = r[:,:,:,0].cpu().detach().data.numpy()
+            
+            occupancy, occupancy_input = ray_tracing_v2.trace(theta_np, phi_np, r_np)
+            
+            occupancy = torch.from_numpy(occupancy)
+            occupancy_input = torch.from_numpy(occupancy_input)
+            
+            if depth.is_cuda:
+                occupancy, occupancy_input = occupancy.cuda(), occupancy_input.cuda()
                             
             output = torch.cat([theta,phi], 3)
             return output, occupancy, occupancy_input
@@ -451,4 +438,3 @@ class Depth3DGridGen_with_mask(Module):
         else:
             output = torch.cat([theta,phi], 3)
             return output
-        
