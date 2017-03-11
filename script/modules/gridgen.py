@@ -119,10 +119,6 @@ class DenseAffineGridGen(Module):
             self.batchgrid[i] = self.grid
 
         self.batchgrid = Variable(self.batchgrid)
-        
-        if input1.is_cuda:
-            self.batchgrid = self.batchgrid.cuda()
-        
         #print self.batchgrid,  input1[:,:,:,0:3]
         #print self.batchgrid,  input1[:,:,:,4:6]
         x = torch.mul(self.batchgrid, input1[:,:,:,0:3])
@@ -301,11 +297,6 @@ class Depth3DGridGen(Module):
             self.batchgrid[i] = self.grid
 
         self.batchgrid = Variable(self.batchgrid)
-        
-        if depth.is_cuda:
-            self.batchgrid = self.batchgrid.cuda()
-            self.batchgrid3d = self.batchgrid3d.cuda()
-            
 
         x = self.batchgrid3d[:,:,:,0:1] * depth + trans0.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
 
@@ -317,14 +308,7 @@ class Depth3DGridGen(Module):
         #print(r)
         theta = torch.acos(z/r)/(np.pi/2)  - 1
         #phi = torch.atan(y/x)
-        
-        if depth.is_cuda:
-            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.cuda.FloatTensor) * (y.ge(0).type(torch.cuda.FloatTensor) - y.lt(0).type(torch.cuda.FloatTensor))        
-        else:
-            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
-        
-        
-        
+        phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
         phi = phi/np.pi
         
         #print(theta.size(), phi.size())
