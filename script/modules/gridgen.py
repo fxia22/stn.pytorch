@@ -423,8 +423,14 @@ class Depth3DGridGen_with_mask(Module):
             theta_np = theta[:,:,:,0].cpu().detach().data.numpy()
             phi_np = phi[:,:,:,0].cpu().detach().data.numpy()
             r_np = r[:,:,:,0].cpu().detach().data.numpy()
+            depth_np = depth[:,:,:,0].cpu().detach().data.numpy()
             
-            occupancy, occupancy_input = ray_tracing_v2.trace(theta_np, phi_np, r_np)
+            #import pickle as pkl
+            #pkl.dump([theta_np, phi_np, r_np, depth_np], open('save.pkl', 'w'))
+            
+            dia = np.arctan(np.tan(np.pi/float(self.height)) / (depth_np+1e-5) * r_np) / np.tan(np.pi/float(self.height))
+            dia = np.ceil(dia)
+            occupancy, occupancy_input = ray_tracing_v2.trace(theta_np, phi_np, r_np, dia)
             
             occupancy = torch.from_numpy(occupancy)
             occupancy_input = torch.from_numpy(occupancy_input)

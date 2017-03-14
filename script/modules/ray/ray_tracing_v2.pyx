@@ -7,7 +7,7 @@ DTYPE = np.float32
 ctypedef np.float32_t DTYPE_t
 
 
-def trace(np.ndarray[DTYPE_t, ndim=3] theta, np.ndarray[DTYPE_t, ndim=3] phi, np.ndarray[DTYPE_t, ndim=3] r_np):
+def trace(np.ndarray[DTYPE_t, ndim=3] theta, np.ndarray[DTYPE_t, ndim=3] phi, np.ndarray[DTYPE_t, ndim=3] r_np, np.ndarray[DTYPE_t, ndim=3] dia):
     #assert theta.dtype == DTYPE and phi.dtype == DTYPE and r_np.dtype == DTYPE
     cdef int b = theta.shape[0]
     cdef int h = theta.shape[1]
@@ -17,7 +17,7 @@ def trace(np.ndarray[DTYPE_t, ndim=3] theta, np.ndarray[DTYPE_t, ndim=3] phi, np
     cdef np.ndarray[DTYPE_t, ndim=3] occupancy_min_r = (np.ones([b,h,w], dtype = DTYPE) * 1e4)
     cdef np.ndarray[DTYPE_t, ndim=3] occupancy_input = np.ones([b,h,w], dtype = DTYPE)
     cdef np.ndarray[DTYPE_t, ndim=3] occupancy = np.zeros([b,h,w], dtype = DTYPE)
-    cdef DTYPE_t threshold = 0.1
+    cdef DTYPE_t threshold = 0.3
     
     
     cdef int i,j,k,idx1,idx2
@@ -26,7 +26,7 @@ def trace(np.ndarray[DTYPE_t, ndim=3] theta, np.ndarray[DTYPE_t, ndim=3] phi, np
     cdef DTYPE_t w_step = 2.0/float(w)
     
     cdef int padding = 1
-    cdef int pad_x, pad_y
+    cdef int padx, pady, d
     
     cdef DTYPE_t local_min;
 
@@ -35,18 +35,14 @@ def trace(np.ndarray[DTYPE_t, ndim=3] theta, np.ndarray[DTYPE_t, ndim=3] phi, np
             for k in range(w):
                 idx1 = int((theta[i,j,k] + 1)/(h_step))
                 idx2 = int((phi[i,j,k] + 1)/(w_step))
-                #print r_np[i,j,k], occupancy_min_r[i,idx1,idx2]
+                d = int(dia[i,j,k])
                 
-                if padding < idx1 < h-padding and padding < idx2 < w-padding:
-   
-                   
-                    for pad_x in range(-padding, padding):
-                        for pad_y in range(-padding, padding):
-                            occupancy[i,idx1+pad_x,idx2+pad_y] = 1
-                        
-                            if r_np[i,j,k] < occupancy_min_r[i,idx1+pad_x,idx2+pad_y]:
-                                occupancy_min_r[i,idx1+pad_x,idx2+pad_y] = r_np[i,j,k]
-                            
+                for padx in range(-d,d+1):
+                    for pady in range(-d,d+1):
+                        if 0<= idx1 + padx < h and 0 <= idx2 + pady < w:
+                            if r_np[i,j,k] < occupancy_min_r[i,idx1 + padx,idx2 + pady]:
+                                occupancy_min_r[i,idx1 + padx,idx2 + pady] = r_np[i,j,k]
+                                occupancy[i, idx1 + padx,idx2 + pady] = 1
 
     #print occupancy_min_r
     
