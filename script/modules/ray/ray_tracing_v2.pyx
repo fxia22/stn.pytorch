@@ -42,7 +42,7 @@ def trace(np.ndarray[DTYPE_t, ndim=3] theta, np.ndarray[DTYPE_t, ndim=3] phi, np
                         if 0<= idx1 + padx < h and 0 <= idx2 + pady < w:
                             if r_np[i,j,k] < occupancy_min_r[i,idx1 + padx,idx2 + pady]:
                                 occupancy_min_r[i,idx1 + padx,idx2 + pady] = r_np[i,j,k]
-                                occupancy[i, idx1 + padx,idx2 + pady] = 1
+                                
 
     #print occupancy_min_r
     
@@ -55,4 +55,18 @@ def trace(np.ndarray[DTYPE_t, ndim=3] theta, np.ndarray[DTYPE_t, ndim=3] phi, np
                     if r_np[i,j,k] > occupancy_min_r[i,idx1,idx2]  + threshold:
                         occupancy_input[i,j,k] = 0
 
+                        
+                        
+    for i in range(b):
+        for j in range(h):
+            for k in range(w):
+                idx1 = int((theta[i,j,k] + 1)/(h_step))
+                idx2 = int((phi[i,j,k] + 1)/(w_step))
+                d = int(dia[i,j,k])    
+                for padx in range(-d,d+1):
+                    for pady in range(-d,d+1):
+                        if 0<= idx1 + padx < h and 0 <= idx2 + pady < w:
+                            if occupancy_input[i,j,k] == 1:
+                                occupancy[i,idx1 + padx,idx2 + pady] = 1       
+                        
     return occupancy, occupancy_input
