@@ -4,6 +4,10 @@ from torch.autograd import Variable
 import numpy as np
 from functions.gridgen import AffineGridGenFunction, CylinderGridGenFunction
 
+import pyximport
+pyximport.install(setup_args={"include_dirs":np.get_include()},
+                  reload_support=True)
+
 from ray import ray_tracing_v2, ray_tracing, ray_tracing_v1
 
 class AffineGridGen(Module):

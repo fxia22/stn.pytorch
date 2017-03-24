@@ -8,7 +8,7 @@ class STNFunction(Function):
     def forward(self, input1, input2):
         self.input1 = input1
         self.input2 = input2
-        output = torch.zeros(input1.size())
+        output = torch.zeros(input1.size()[0], input2.size()[1], input2.size()[2], input1.size()[3])
         if not input1.is_cuda:
             my_lib.BilinearSamplerBHWD_updateOutput(input1, input2, output)
         else:
