@@ -3,10 +3,6 @@ import numpy as np
 import torch.nn as nn
 from torch.autograd import Variable
 
-import pyximport
-pyximport.install(setup_args={"include_dirs":np.get_include()},
-                  reload_support=True)
-
 from modules.stn import STN
 from modules.gridgen import AffineGridGen, CylinderGridGen, CylinderGridGenV2, DenseAffine3DGridGen, DenseAffine3DGridGen_rotate
 
