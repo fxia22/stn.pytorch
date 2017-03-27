@@ -6,6 +6,8 @@ from torch.autograd import Variable
 from modules.stn import STN
 from modules.gridgen import AffineGridGen, CylinderGridGen, CylinderGridGenV2, DenseAffine3DGridGen, DenseAffine3DGridGen_rotate
 
+import time
+
 nframes = 64
 height = 64
 width = 128
@@ -25,23 +27,32 @@ print input
 g = AffineGridGen(64, 128, aux_loss = True)
 out, aux = g(input)
 print out.size()
-print out
 out.backward(out.data)
-print input.grad
+print input.grad.size()
 
 
 
 #print input2.data
-while False:
-    s = STN()
-    out = s(input1, input2)
-#print out
-    out.backward(input1.data)
-    print input1.grad.size()
+s = STN()
+start = time.time()
+out = s(input1, input2)
+print out.size(), 'time:', time.time() - start
 
+start = time.time()
+out.backward(input1.data)
+print input1.grad.size(), 'time:', time.time() - start
+
+input1 = input1.cuda()
+input2 = input2.cuda()
+
+start = time.time()
+out = s(input1, input2)
+print out.size(), 'time:', time.time() - start
+start = time.time()
+out.backward(input1.data)
+print  'time:', time.time() - start
 
 input = Variable(torch.from_numpy(np.array([[3.6]], dtype=np.float32)), requires_grad = True)
-print input
 
 g = CylinderGridGenV2(64, 128)
 g2 = DenseAffine3DGridGen(64,128)

@@ -8,7 +8,6 @@ import pyximport
 pyximport.install(setup_args={"include_dirs":np.get_include()},
                   reload_support=True)
 
-from ray import ray_tracing_v2, ray_tracing, ray_tracing_v1
 
 class AffineGridGen(Module):
     def __init__(self, height, width, lr = 1, aux_loss = False):
@@ -182,8 +181,8 @@ class DenseAffine3DGridGen(Module):
         #phi = torch.atan(y/x)
         phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
         phi = phi/np.pi
-        
-        
+
+
         output = torch.cat([theta,phi], 3)
 
         return output
@@ -314,10 +313,10 @@ class Depth3DGridGen(Module):
         #phi = torch.atan(y/x)
         phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
         phi = phi/np.pi
-        
+
         #print(theta.size(), phi.size())
 
-        
+
         input_u = rotate.view(-1,1,1,1).repeat(1,self.height, self.width,1)
 
         output = torch.cat([theta,phi], 3)
@@ -327,10 +326,10 @@ class Depth3DGridGen(Module):
         output2 = torch.cat([output[:,:,:,0:1], output1], 3)
 
         return output2
-        
-        
-        
-        
+
+
+
+
 
 class Depth3DGridGen_with_mask(Module):
     def __init__(self, height, width, lr = 1, aux_loss = False, ray_tracing = False):
@@ -375,54 +374,37 @@ class Depth3DGridGen_with_mask(Module):
             self.batchgrid[i] = self.grid
 
         self.batchgrid = Variable(self.batchgrid)
-        
+
         if depth.is_cuda:
             self.batchgrid = self.batchgrid.cuda()
             self.batchgrid3d = self.batchgrid3d.cuda()
-            
+
 
         x_ = self.batchgrid3d[:,:,:,0:1] * depth + trans0.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
 
         y_ = self.batchgrid3d[:,:,:,1:2] * depth + trans1.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
         z = self.batchgrid3d[:,:,:,2:3] * depth
         #print(x.size(), y.size(), z.size())
-        
+
         rotate_z = rotate.view(-1,1,1,1).repeat(1,self.height, self.width,1) * np.pi
-        
+
         x = x_ * torch.cos(rotate_z) - y_ * torch.sin(rotate_z)
         y = x_ * torch.sin(rotate_z) + y_ * torch.cos(rotate_z)
-         
-        
+
+
         r = torch.sqrt(x**2 + y**2 + z**2) + 1e-5
 
         #print(r)
         theta = torch.acos(z/r)/(np.pi/2)  - 1
         #phi = torch.atan(y/x)
-        
+
         if depth.is_cuda:
-            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.cuda.FloatTensor) * (y.ge(0).type(torch.cuda.FloatTensor) - y.lt(0).type(torch.cuda.FloatTensor))        
+            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.cuda.FloatTensor) * (y.ge(0).type(torch.cuda.FloatTensor) - y.lt(0).type(torch.cuda.FloatTensor))
         else:
             phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
-        
-        
-        phi = phi/np.pi   
-        
-        if self.ray_tracing:
-            theta_np = theta[:,:,:,0].cpu().detach().data.numpy()
-            phi_np = phi[:,:,:,0].cpu().detach().data.numpy()
-            r_np = r[:,:,:,0].cpu().detach().data.numpy()
-            
-            occupancy, occupancy_input = ray_tracing_v2.trace(theta_np, phi_np, r_np)
-            
-            occupancy = torch.from_numpy(occupancy)
-            occupancy_input = torch.from_numpy(occupancy_input)
-            
-            if depth.is_cuda:
-                occupancy, occupancy_input = occupancy.cuda(), occupancy_input.cuda()
-                            
-            output = torch.cat([theta,phi], 3)
-            return output, occupancy, occupancy_input
 
-        else:
-            output = torch.cat([theta,phi], 3)
-            return output
+
+        phi = phi/np.pi
+
+        output = torch.cat([theta,phi], 3)
+        return output

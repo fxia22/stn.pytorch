@@ -23,24 +23,27 @@ class AffineGridGenFunction(Function):
         for i in range(input1.size(0)):
             self.batchgrid[i] = self.grid
 
-        if not input1.is_cuda:
-            for i in range(input1.size(0)):
-                #output[i,:,:,0] = self.grid[:,:,0] * input1[i,0,0] + self.grid[:,:,1] * input1[i,0,1] + input1[i,0,2]
-                #output[i,:,:,1] = self.grid[:,:,1] * input1[i,1,0] + self.grid[:,:,1] * input1[i,1,1] + input1[i,1,2]
+        if input1.is_cuda:
+            self.batchgrid = self.batchgrid.cuda()
+            output = output.cuda()
+            
+        for i in range(input1.size(0)):
                 output = torch.bmm(self.batchgrid.view(-1, self.height*self.width, 3), torch.transpose(input1, 1, 2)).view(-1, self.height, self.width, 2)
-        else:
-            print 'not implemented'
+        
         return output
 
     def backward(self, grad_output):
+        
         grad_input1 = torch.zeros(self.input1.size())
-        if not grad_output.is_cuda:
+        
+        if grad_output.is_cuda:
+            self.batchgrid = self.batchgrid.cuda()
+            grad_input1 = grad_input1.cuda()
             #print 'gradout:',grad_output.size()
-            grad_input1 = torch.baddbmm(grad_input1, torch.transpose(grad_output.view(-1, self.height*self.width, 2), 1,2), self.batchgrid.view(-1, self.height*self.width, 3))
-            #print grad_input1.size()
-        else:
-            print 'not implemented'
-        return grad_input1 * self.lr
+        grad_input1 = torch.baddbmm(grad_input1, torch.transpose(grad_output.view(-1, self.height*self.width, 2), 1,2), self.batchgrid.view(-1, self.height*self.width, 3))
+        
+        #print grad_input1
+        return grad_input1
 
 class CylinderGridGenFunction(Function):
     def __init__(self, height, width,lr=1):
