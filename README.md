@@ -1,11 +1,12 @@
 # PyTorch version of spatial transformer network
 
-Ported from https://github.com/qassemoquab/stnbhwd according to pytorch tutorial. Now only support CPU. To use the ffi you need to install the `cffi` package from pip.
+Ported from https://github.com/qassemoquab/stnbhwd according to pytorch tutorial. Now support CPU and GPU. To use the ffi you need to install the `cffi` package from pip.
 
 # Build and test
 
 ```
 cd script
+./make.sh
 python build.py
 python test.py
 ```
