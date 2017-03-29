@@ -267,7 +267,7 @@ int BilinearSamplerBHWD_updateOutput_cuda_kernel(/*output->size[2]*/int sz1,
                                                  /*THCState_getCurrentStream(state)*/cudaStream_t stream)
 {
    //dim3 blocks((output->size[2]+15)/16, output->size[1], output->size[0]);
-   dim3 blocks(sz1/16, sz2, sz3);
+   dim3 blocks((sz1+15)/16, sz2, sz3);
    dim3 threads(32,16);
 
    /* assume BHWD */
