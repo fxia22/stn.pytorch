@@ -41,7 +41,7 @@ int IDWSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
 
   for(b=0; b < batchsize; b++)
   {
-    kd = kd_create(3);
+    kd = kd_create(2);
 
     for(yOut=0; yOut < output_height; yOut++)
     {
@@ -59,7 +59,9 @@ int IDWSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
         const int inAddress = output_strideBatch * b + output_strideHeight * yOut + output_strideWidth * xOut;
         //const int inTopLeftAddress = inputImages_strideBatch * b + inputImages_strideHeight * yInTopLeft + inputImages_strideWidth * xInTopLeft;
         //printf("%.3f, %.3f inserted\n", yf, xf);
-        kd_insert3f(kd, yf, xf, 0.0, inAddress);
+
+        const float pt[] = {yf, xf};
+        kd_insertf(kd, pt, inAddress);
 
         // get the weights for interpolation
         /*int yInTopLeft, xInTopLeft;
@@ -125,9 +127,9 @@ int IDWSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
 
         const int outAddress = output_strideBatch * b + output_strideHeight * yOut + output_strideWidth * xOut;
         void *result_set;
-        float pt[] = {y, x, 0};
-        result_set = kd_nearest_range3f(kd, y,x,0, 0.05);
-        float pos[3], dist;
+        float pt[] = {y, x};
+        result_set = kd_nearest_rangef(kd, pt, 3 * 1/(float)(output_width));
+        float pos[2], dist;
         int pch;
         float * dists;
         float sum_dist;
@@ -143,7 +145,7 @@ int IDWSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                 /* get the data and position of the current result item */
                 pch = (int)kd_res_itemf( result_set, pos  );
                     /* compute the distance of the current result from the pt */
-                dist = sqrt( dist_sq( pt, pos, 3  )  );
+                dist = sqrt( dist_sq( pt, pos, 2  )  );
                 //printf( "node at (%.3f, %.3f, %.3f) is %.3f away from (%.3f, %.3f, %.3f) and has data=%d\n",
                 //                        pos[0], pos[1], pos[2], dist, pt[0], pt[1], pt[2],  pch );
                 kd_res_next( result_set );
@@ -225,10 +227,24 @@ int IDWSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
   gradGrids_data = THFloatTensor_data(gradGrids);
   gradInputImages_data = THFloatTensor_data(gradInputImages);
 
+  int n;
+  n = inputImages_strideBatch * batchsize + inputImages_strideHeight * gradOutput_height + inputImages_strideWidth * gradOutput_width;
+
+  //printf("length %d\n",n);
+
+  int * address_array = malloc(n * sizeof(int));
+
   int b, yOut, xOut;
+  float point_list[gradOutput_height][gradOutput_width][2];
+  float grid_list[gradOutput_height][gradOutput_width][2];
+  void *kd;
+
+
+
 
   for(b=0; b < batchsize; b++)
   {
+  	kd = kd_create(2);
     for(yOut=0; yOut < gradOutput_height; yOut++)
     {
       for(xOut=0; xOut < gradOutput_width; xOut++)
@@ -237,7 +253,7 @@ int IDWSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
         float yf = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + xOut*grids_strideWidth];
         float xf = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + xOut*grids_strideWidth + 1];
 
-        // get the weights for interpolation
+	    // get the weights for interpolation
         int yInTopLeft, xInTopLeft;
         float yWeightTopLeft, xWeightTopLeft;
 
@@ -249,8 +265,14 @@ int IDWSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
         yInTopLeft = floor(ycoord);
         yWeightTopLeft = 1 - (ycoord - yInTopLeft);
 
+		const int inAddress = inputImages_strideBatch * b + inputImages_strideHeight * yOut + inputImages_strideWidth * xOut;
 
-        const int inTopLeftAddress = inputImages_strideBatch * b + inputImages_strideHeight * yInTopLeft + inputImages_strideWidth * xInTopLeft;
+
+		const float pt[] = {yf, xf};
+        kd_insertf(kd, pt, inAddress);
+		address_array[inAddress] = b*gradGrids_strideBatch + yOut*gradGrids_strideHeight + xOut*gradGrids_strideWidth;
+
+        /*const int inTopLeftAddress = inputImages_strideBatch * b + inputImages_strideHeight * yInTopLeft + inputImages_strideWidth * xInTopLeft;
         const int inTopRightAddress = inTopLeftAddress + inputImages_strideWidth;
         const int inBottomLeftAddress = inTopLeftAddress + inputImages_strideHeight;
         const int inBottomRightAddress = inBottomLeftAddress + inputImages_strideWidth;
@@ -318,11 +340,90 @@ int IDWSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
 
         gradGrids_data[b*gradGrids_strideBatch + yOut*gradGrids_strideHeight + xOut*gradGrids_strideWidth] = yf * (inputImages_height-1) / 2;
         gradGrids_data[b*gradGrids_strideBatch + yOut*gradGrids_strideHeight + xOut*gradGrids_strideWidth + 1] = xf * (inputImages_width-1) / 2;
-
+	*/
       }
     }
+
+	for(yOut=0; yOut < gradOutput_height; yOut++)
+    {
+      for(xOut=0; xOut < gradOutput_width; xOut++)
+      {
+      	float y = (float)(yOut) / (float)(gradOutput_height) * 2 - 1;
+        float x = (float)(xOut) / (float)(gradOutput_width) * 2 - 1;
+        void *result_set;
+        float pt[] = {y, x};
+        result_set = kd_nearest_rangef(kd, pt, 3 * 1/(float)(gradOutput_width));
+		float pos[2], dist;
+        int pch;
+        float * dists;
+        float sum_dist;
+        int npoints = kd_res_size(result_set);
+        //printf("%d points found\n",npoints);
+
+        dists = (float *)malloc(npoints * sizeof(float));
+
+        int idx;
+        idx = 0;
+        sum_dist = 0;
+        while( !kd_res_end( result_set  )  ) {
+                /* get the data and position of the current result item */
+                pch = (int)kd_res_itemf( result_set, pos  );
+                    /* compute the distance of the current result from the pt */
+                dist = sqrt( dist_sq( pt, pos, 2  )  );
+                //printf( "node at (%.3f, %.3f, %.3f) is %.3f away from (%.3f, %.3f, %.3f) and has data=%d\n",
+                //                        pos[0], pos[1], pos[2], dist, pt[0], pt[1], pt[2],  pch );
+                kd_res_next( result_set );
+				
+				
+               	dists[idx] = 1/(dist + 1e-6);
+               	sum_dist += 1/(dist + 1e-6);
+				
+                idx+=1;
+        }
+        //backprop happens here
+        //
+        int t;
+
+        idx = 0;
+        const int gradOutputAddress = gradOutput_strideBatch * b + gradOutput_strideHeight * yOut + gradOutput_strideWidth * xOut;
+
+
+        kd_res_rewind(result_set);
+
+        while( !kd_res_end( result_set  )  ) {
+                pch = (int)kd_res_itemf( result_set, pos);
+                int gradgrid_address = address_array[pch];
+
+                float dotprod = 0.0;
+
+                for(t=0; t<inputImages_channels; t++)
+                {
+                    //output_data[outAddress + t] += dists[idx] / (sum_dist) * inputImages_data[pch + t];
+                    //printf("%f\n", dists[idx]/sum_dist);
+					float gradOutValue = gradOutput_data[gradOutputAddress + t];
+                    gradInputImages_data[pch + t] += dists[idx] / (sum_dist) * gradOutValue;
+                    dotprod += gradOutValue * inputImages_data[pch + t];
+                }
+								
+                gradGrids_data[gradgrid_address] += (pt[0] - pos[0]) * dists[idx] * dists[idx] * dists[idx]* (sum_dist - dists[idx])/(sum_dist * sum_dist) * dotprod;
+                gradGrids_data[gradgrid_address+1] += (pt[1] - pos[1]) * dists[idx] * dists[idx] * dists[idx] * (sum_dist - dists[idx])/(sum_dist * sum_dist) * dotprod;
+                kd_res_next( result_set );
+                idx+=1;
+        }
+
+        free(dists);
+        kd_res_free(result_set);
+
+
+	  }
+
+    }
+
+
+    kd_free(kd);
   }
 
+  free(address_array);
   return 1;
 }
 
