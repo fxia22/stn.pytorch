@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import torch
 import numpy as np
 import torch.nn as nn
@@ -22,13 +24,13 @@ input1.data.uniform_()
 input2.data.uniform_(-1,1)
 
 input = Variable(torch.from_numpy(np.array([[[0.8, 0.3, 1], [0.5, 0, 0]]], dtype=np.float32)), requires_grad = True)
-print input
+print(input)
 
 g = AffineGridGen(64, 128, aux_loss = True)
 out, aux = g(input)
-print out.size()
+print((out.size()))
 out.backward(out.data)
-print input.grad.size()
+print(input.grad.size())
 
 
 
@@ -36,21 +38,21 @@ print input.grad.size()
 s = STN()
 start = time.time()
 out = s(input1, input2)
-print out.size(), 'time:', time.time() - start
+print(out.size(), 'time:', time.time() - start)
 
 start = time.time()
 out.backward(input1.data)
-print input1.grad.size(), 'time:', time.time() - start
+print(input1.grad.size(), 'time:', time.time() - start)
 
 input1 = input1.cuda()
 input2 = input2.cuda()
 
 start = time.time()
 out = s(input1, input2)
-print out.size(), 'time:', time.time() - start
+print(out.size(), 'time:', time.time() - start)
 start = time.time()
 out.backward(input1.data)
-print  'time:', time.time() - start
+print('time:', time.time() - start)
 
 input = Variable(torch.from_numpy(np.array([[3.6]], dtype=np.float32)), requires_grad = True)
 
@@ -64,7 +66,7 @@ input = input.repeat(16,1,1,1)
 iden2 = iden2.repeat(16,1,1,1)
 
 out = g(input)
-print out.size()
+print(out.size())
 out.backward(torch.rand(16,64,128,2))
 out = g2(iden2)
 out.backward(torch.rand(16,64,128,2))
