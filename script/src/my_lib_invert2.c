@@ -115,6 +115,7 @@ void dot32(real gradalphar[3][2], real gradr[2], real gradalpha[3]) {
 
 void inv2(real m2[2][2], real im2[2][2]) {
    real determinant = m2[0][0] * m2[1][1] - m2[0][1] * m2[1][0];
+   //printf("det %.5f\n", determinant);
    im2[0][0] = m2[1][1] / determinant;
    im2[1][1] = m2[0][0] / determinant;
    im2[0][1] = -m2[0][1] / determinant;
@@ -188,17 +189,23 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
       for(xOut=0; xOut < output_width - 1; xOut++)
       {
         //read the grid
-        
           
-        x[0] = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + xOut*grids_strideWidth + 1];
-        x[1] = grids_data[b*grids_strideBatch + (yOut+1)*grids_strideHeight + xOut*grids_strideWidth + 1];
-        x[2] = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + (xOut+1)*grids_strideWidth + 1];
-        x[3] = grids_data[b*grids_strideBatch + (yOut+1)*grids_strideHeight + (xOut+1)*grids_strideWidth + 1];
           
-        y[0] = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + xOut*grids_strideWidth];
-        y[1] = grids_data[b*grids_strideBatch + (yOut+1)*grids_strideHeight + xOut*grids_strideWidth];
-        y[2] = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + (xOut+1)*grids_strideWidth];
-        y[3] = grids_data[b*grids_strideBatch + (yOut+1)*grids_strideHeight + (xOut+1)*grids_strideWidth];
+          const int inTopLeftAddress = grids_strideBatch * b + grids_strideHeight * yOut + grids_strideWidth * xOut;
+          const int inTopRightAddress = inTopLeftAddress + grids_strideWidth;
+          const int inBottomLeftAddress = inTopLeftAddress + grids_strideHeight;
+          const int inBottomRightAddress = inBottomLeftAddress + grids_strideWidth;
+
+          
+        x[0] = grids_data[inTopLeftAddress + 1];
+        x[1] = grids_data[inBottomLeftAddress + 1];
+        x[2] = grids_data[inTopRightAddress + 1];
+        x[3] = grids_data[inBottomRightAddress + 1];
+          
+        y[0] = grids_data[inTopLeftAddress];
+        y[1] = grids_data[inBottomLeftAddress];
+        y[2] = grids_data[inTopRightAddress];
+        y[3] = grids_data[inBottomRightAddress];
           
         basex[0] = (float)xOut / (float)(output_width-1) * 2 - 1;
         basex[1] = (float)(xOut+1) / (float)(output_width-1) * 2 - 1;
@@ -435,7 +442,20 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
   gradInputImages_data = THFloatTensor_data(gradInputImages);
 
   int b, yOut, xOut;
-    
+   
+  for(b=0; b < batchsize; b++)
+  {
+    for(yOut=0; yOut < gradOutput_height; yOut++)
+    {
+      for(xOut=0; xOut < gradOutput_width; xOut++)
+      {
+          const int Address = gradGrids_strideBatch * b + gradGrids_strideHeight * yOut + gradGrids_strideWidth * xOut;
+          gradGrids_data[Address] = 0;
+          gradGrids_data[Address + 1] = 0;
+          
+      }
+    }
+  }
     
    for(b=0; b < batchsize; b++)
   {
@@ -449,8 +469,9 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           
           real r[2], gradr[2];
             
-          r[1] = invgrids_data[invgridAddress] ;
           r[0] = invgrids_data[invgridAddress + 1] ;
+          r[1] = invgrids_data[invgridAddress] ;
+          
                        
           //printf("%.4f %.4f\n", r[0], r[1]);
           
@@ -537,14 +558,14 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
               if(!onlyGrid) gradInputImages_data[gradInputImagesBottomRightAddress + t] += (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * gradOutValue;
            }
         }
-        real yf,xf;
+        real yfg,xfg;
 
-        yf = - xWeightTopLeft * topLeftDotProduct + xWeightTopLeft * bottomLeftDotProduct - (1-xWeightTopLeft) * topRightDotProduct + (1-xWeightTopLeft) * bottomRightDotProduct;
-        xf = - yWeightTopLeft * topLeftDotProduct + yWeightTopLeft * topRightDotProduct - (1-yWeightTopLeft) * bottomLeftDotProduct + (1-yWeightTopLeft) * bottomRightDotProduct;
+        yfg = - xWeightTopLeft * topLeftDotProduct + xWeightTopLeft * bottomLeftDotProduct - (1-xWeightTopLeft) * topRightDotProduct + (1-xWeightTopLeft) * bottomRightDotProduct;
+        xfg = - yWeightTopLeft * topLeftDotProduct + yWeightTopLeft * topRightDotProduct - (1-yWeightTopLeft) * bottomLeftDotProduct + (1-yWeightTopLeft) * bottomRightDotProduct;
 
-        gradr[0] = xf * (inputImages_height-1) / 2;
-        gradr[1] = yf * (inputImages_width-1) / 2;
-          
+        gradr[0] = xfg * (inputImages_height-1) / 2;
+        gradr[1] = yfg * (inputImages_width-1) / 2;
+         
         real target_yf, target_xf;
         target_yf = (float)yOut / (float)(inputImages_height - 1) * 2 - 1;
         target_xf = (float)xOut / (float)(inputImages_width - 1) * 2 - 1;
@@ -649,23 +670,49 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           dot34t(m, gradalpha, gradx);
           dot34t(m, gradbeta, grady);
           
-          //printf("%.3f %.3f %.3f %.3f\n", gradx[0], gradx[1], gradx[2], gradx[3]);
+          gradx[0] = gradx[0] -  gradx[1] * gradOutput_height - gradx[2] * gradOutput_height- gradx[3] * gradOutput_height;
+          grady[0] = grady[0] -  grady[1] * gradOutput_height - grady[2] * gradOutput_height- grady[3] * gradOutput_height;
+          
+          for (i = 1; i < 4; i++) {
+              gradx[i] *= gradOutput_height;
+              grady[i] *= gradOutput_height;
+          }
+          
+          //printf("x %.3f %.3f %.3f %.3f\n", gradx[0], gradx[1], gradx[2], gradx[3]);
+          //printf("y %.3f %.3f %.3f %.3f\n", grady[0], grady[1], grady[2], grady[3]);
           
           //printf("%.3f %.3f %.3f %.3f\n", r[0], r[1], gradx[0], grady[0]);
           
           if ((abs_real(r[0]) >1e-8) && (abs_real(r[1] > 1e-8))) {
-              gradGrids_data[gridinTopLeftAddress] = grady[0];
-              gradGrids_data[gridinTopLeftAddress + 1] = gradx[0];
+              gradGrids_data[gridinTopLeftAddress] += grady[0];
+              gradGrids_data[gridinTopLeftAddress + 1] += gradx[0];
+              
+              gradGrids_data[gridinBottomLeftAddress] += grady[1];
+              gradGrids_data[gridinBottomLeftAddress + 1] += gradx[1];
+              
+              gradGrids_data[gridinTopRightAddress] += grady[2];
+              gradGrids_data[gridinTopRightAddress + 1] += gradx[2];
+              
+              gradGrids_data[gridinBottomRightAddress] += grady[3];
+              gradGrids_data[gridinBottomRightAddress + 1] += gradx[3];
+              
+              
+              //x[0] = grids_data[gridinTopLeftAddress + 1];
+              //x[1] = grids_data[gridinBottomLeftAddress + 1];
+              //x[2] = grids_data[gridinTopRightAddress + 1];
+              //x[3] = grids_data[gridinBottomRightAddress + 1];
+              
+
           }
           
-            
+          
           
           //printf("%.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f\n", grad_alpha_r[1][0], grad_alpha_r[1][1], grad_alpha_r[2][0], grad_alpha_r[2][1],  grad_beta_r[1][0], grad_beta_r[1][1], grad_beta_r[2][0], grad_beta_r[2][1]);
 
 
           
           dot21(im2, d2, r2); 
-          //printf("%.4f %.4f %.4f %.4f\n", r[0], r[1], r2[0], r2[1]);
+          //printf("%.8f %.8f %.8f %.8f\n", r[0], r[1], r2[0], r2[1]);
            
           
           
