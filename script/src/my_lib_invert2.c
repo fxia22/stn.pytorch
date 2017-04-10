@@ -563,8 +563,8 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
         yfg = - xWeightTopLeft * topLeftDotProduct + xWeightTopLeft * bottomLeftDotProduct - (1-xWeightTopLeft) * topRightDotProduct + (1-xWeightTopLeft) * bottomRightDotProduct;
         xfg = - yWeightTopLeft * topLeftDotProduct + yWeightTopLeft * topRightDotProduct - (1-yWeightTopLeft) * bottomLeftDotProduct + (1-yWeightTopLeft) * bottomRightDotProduct;
 
-        gradr[0] = xfg * (inputImages_height-1) / 2;
-        gradr[1] = yfg * (inputImages_width-1) / 2;
+        gradr[0] = xfg * (inputImages_width-1) / 2;
+        gradr[1] = yfg * (inputImages_height-1) / 2;
          
         real target_yf, target_xf;
         target_yf = (float)yOut / (float)(inputImages_height - 1) * 2 - 1;
