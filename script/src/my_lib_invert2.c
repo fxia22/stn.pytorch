@@ -602,8 +602,8 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           
           real m2[2][2], im2[2][2];
           m2[0][0] = alpha[1];
-          m2[0][1] = alpha[2];
-          m2[1][0] = beta[1];
+          m2[1][0] = alpha[2];
+          m2[0][1] = beta[1];
           m2[1][1] = beta[2];
           inv2(m2, im2);
           
@@ -625,7 +625,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           grad_alpha_r[1][1] = -tempgrad[1];
           
           
-          real i01[2][2] = {{0,1},{0,0}};
+          real i01[2][2] = {{0,0},{1,0}};
           dot22(im2, i01, temp);
           dot22(temp, im2, temp2);
           dot21(temp2, d2, tempgrad);
@@ -633,7 +633,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           grad_alpha_r[2][1] = -tempgrad[1];
           
           
-          real i10[2][2] = {{0,0},{1,0}};
+          real i10[2][2] = {{0,1},{0,0}};
           dot22(im2, i10, temp);
           dot22(temp, im2, temp2);
           dot21(temp2, d2, tempgrad);
@@ -683,7 +683,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           
           //printf("%.3f %.3f %.3f %.3f\n", r[0], r[1], gradx[0], grady[0]);
           
-          if ((abs_real(r[0]) >1e-8) && (abs_real(r[1] > 1e-8))) {
+          if ((abs_real(r[0]) >1e-6) && (abs_real(r[1] > 1e-6))) {
               gradGrids_data[gridinTopLeftAddress] += grady[0];
               gradGrids_data[gridinTopLeftAddress + 1] += gradx[0];
               
