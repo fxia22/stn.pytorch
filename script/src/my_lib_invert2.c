@@ -602,8 +602,8 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           
           real m2[2][2], im2[2][2];
           m2[0][0] = alpha[1];
-          m2[1][0] = alpha[2];
-          m2[0][1] = beta[1];
+          m2[0][1] = alpha[2];
+          m2[1][0] = beta[1];
           m2[1][1] = beta[2];
           inv2(m2, im2);
           
@@ -625,7 +625,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           grad_alpha_r[1][1] = -tempgrad[1];
           
           
-          real i01[2][2] = {{0,0},{1,0}};
+          real i01[2][2] = {{0,1},{0,0}};
           dot22(im2, i01, temp);
           dot22(temp, im2, temp2);
           dot21(temp2, d2, tempgrad);
@@ -633,7 +633,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           grad_alpha_r[2][1] = -tempgrad[1];
           
           
-          real i10[2][2] = {{0,1},{0,0}};
+          real i10[2][2] = {{0,0},{1,0}};
           dot22(im2, i10, temp);
           dot22(temp, im2, temp2);
           dot21(temp2, d2, tempgrad);
@@ -706,7 +706,6 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           }
           
           
-          
           //printf("%.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f\n", grad_alpha_r[1][0], grad_alpha_r[1][1], grad_alpha_r[2][0], grad_alpha_r[2][1],  grad_beta_r[1][0], grad_beta_r[1][1], grad_beta_r[2][0], grad_beta_r[2][1]);
 
 
@@ -727,235 +726,3 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
   return 1;
 }
 
-
-
-/*int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *gradInputImages, THFloatTensor *gradGrids, THFloatTensor *gradOutput)
-{
-  bool onlyGrid=false;
-
-  int batchsize = inputImages->size[0];
-  int inputImages_height = inputImages->size[1];
-  int inputImages_width = inputImages->size[2];
-  int gradOutput_height = gradOutput->size[1];
-  int gradOutput_width = gradOutput->size[2];
-  int inputImages_channels = inputImages->size[3];
-
-  int gradOutput_strideBatch = gradOutput->stride[0];
-  int gradOutput_strideHeight = gradOutput->stride[1];
-  int gradOutput_strideWidth = gradOutput->stride[2];
-
-  int inputImages_strideBatch = inputImages->stride[0];
-  int inputImages_strideHeight = inputImages->stride[1];
-  int inputImages_strideWidth = inputImages->stride[2];
-
-  int gradInputImages_strideBatch = gradInputImages->stride[0];
-  int gradInputImages_strideHeight = gradInputImages->stride[1];
-  int gradInputImages_strideWidth = gradInputImages->stride[2];
-
-  int grids_strideBatch = grids->stride[0];
-  int grids_strideHeight = grids->stride[1];
-  int grids_strideWidth = grids->stride[2];
-
-  int gradGrids_strideBatch = gradGrids->stride[0];
-  int gradGrids_strideHeight = gradGrids->stride[1];
-  int gradGrids_strideWidth = gradGrids->stride[2];
-
-  real *inputImages_data, *gradOutput_data, *grids_data, *gradGrids_data, *gradInputImages_data, *gradOutput_data_org, *invgrids_data;
-    
-    
-    
-  inputImages_data = THFloatTensor_data(inputImages);
-  gradOutput_data_org = THFloatTensor_data(gradOutput);
-  grids_data = THFloatTensor_data(grids);
-  invgrids_data = THFloatTensor_data(invgrids);
-  
-
-  gradOutput_data = (real *)malloc(sizeof(real) * gradOutput_strideBatch * batchsize);
-  
-  gradGrids_data = THFloatTensor_data(gradGrids);
-  gradInputImages_data = THFloatTensor_data(gradInputImages);
-
-  int b, yOut, xOut;
-  
-    
-  for(b=0; b < batchsize; b++)
-  {
-    for(yOut=0; yOut < gradOutput_height; yOut++)
-    {
-      for(xOut=0; xOut < gradOutput_width; xOut++)
-      {
-          const int outAddress = gradOutput_strideBatch * b + gradOutput_strideHeight * yOut + gradOutput_strideWidth * xOut;
-          gradOutput_data[outAddress] = 0;
-          gradOutput_data[outAddress+1] = 0;
-      }
-    }
-   }
-    
-  for(b=0; b < batchsize; b++)
-  {
-    for(yOut=0; yOut < gradOutput_height; yOut++)
-    {
-      for(xOut=0; xOut < gradOutput_width; xOut++)
-      {
-        //read the grid
-        real yf = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + xOut*grids_strideWidth];
-        real xf = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + xOut*grids_strideWidth + 1];
-
-        // get the weights for interpolation
-        int yInTopLeft, xInTopLeft;
-        real yWeightTopLeft, xWeightTopLeft;
-
-        real xcoord = (xf + 1) * (inputImages_width - 1) / 2;
-        xInTopLeft = floor(xcoord);
-        xWeightTopLeft = 1 - (xcoord - xInTopLeft);
-
-        real ycoord = (yf + 1) * (inputImages_height - 1) / 2;
-        yInTopLeft = floor(ycoord);
-        yWeightTopLeft = 1 - (ycoord - yInTopLeft);
-
-
-
-        const int outAddress = gradOutput_strideBatch * b + gradOutput_strideHeight * yOut + gradOutput_strideWidth * xOut;
-        const int inTopLeftAddress = gradOutput_strideBatch * b +gradOutput_strideHeight * yInTopLeft + gradOutput_strideWidth * xInTopLeft;
-        const int inTopRightAddress = inTopLeftAddress + gradOutput_strideWidth;
-        const int inBottomLeftAddress = inTopLeftAddress + gradOutput_strideHeight;
-        const int inBottomRightAddress = inBottomLeftAddress + gradOutput_strideWidth;
-
-        real v=0;
-        real inTopLeft=0;
-        real inTopRight=0;
-        real inBottomLeft=0;
-        real inBottomRight=0;
-
-        // we are careful with the boundaries
-        bool topLeftIsIn = xInTopLeft >= 0 && xInTopLeft <= inputImages_width-1 && yInTopLeft >= 0 && yInTopLeft <= inputImages_height-1;
-        bool topRightIsIn = xInTopLeft+1 >= 0 && xInTopLeft+1 <= inputImages_width-1 && yInTopLeft >= 0 && yInTopLeft <= inputImages_height-1;
-        bool bottomLeftIsIn = xInTopLeft >= 0 && xInTopLeft <= inputImages_width-1 && yInTopLeft+1 >= 0 && yInTopLeft+1 <= inputImages_height-1;
-        bool bottomRightIsIn = xInTopLeft+1 >= 0 && xInTopLeft+1 <= inputImages_width-1 && yInTopLeft+1 >= 0 && yInTopLeft+1 <= inputImages_height-1;
-
-        int t;
-        // interpolation happens here
-        for(t=0; t<2; t++)
-        {
-           if(topLeftIsIn) inTopLeft = gradOutput_data_org[inTopLeftAddress + t];
-           if(topRightIsIn) inTopRight = gradOutput_data_org[inTopRightAddress + t];
-           if(bottomLeftIsIn) inBottomLeft = gradOutput_data_org[inBottomLeftAddress + t];
-           if(bottomRightIsIn) inBottomRight = gradOutput_data_org[inBottomRightAddress + t];
-
-           v = xWeightTopLeft * yWeightTopLeft * inTopLeft
-             + (1 - xWeightTopLeft) * yWeightTopLeft * inTopRight
-             + xWeightTopLeft * (1 - yWeightTopLeft) * inBottomLeft
-             + (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * inBottomRight;
-            //printf("%f\n",v);
-           gradOutput_data[outAddress + t] = v;
-        }
-
-      }
-    }
-  }  
-   
-    
-   printf("here\n");
-    
-    
-
-  for(b=0; b < batchsize; b++)
-  {
-    for(yOut=10; yOut < gradOutput_height-10; yOut++)
-    {
-      for(xOut=10; xOut < gradOutput_width-10; xOut++)
-      {
-        //read the grid
-        real yf = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + xOut*grids_strideWidth];
-        real xf = grids_data[b*grids_strideBatch + yOut*grids_strideHeight + xOut*grids_strideWidth + 1];
-
-        // get the weights for interpolation
-        int yInTopLeft, xInTopLeft;
-        real yWeightTopLeft, xWeightTopLeft;
-
-        real xcoord = (xf + 1) * (inputImages_width - 1) / 2;
-        xInTopLeft = floor(xcoord);
-        xWeightTopLeft = 1 - (xcoord - xInTopLeft);
-
-        real ycoord = (yf + 1) * (inputImages_height - 1) / 2;
-        yInTopLeft = floor(ycoord);
-        yWeightTopLeft = 1 - (ycoord - yInTopLeft);
-
-
-        const int inTopLeftAddress = inputImages_strideBatch * b + inputImages_strideHeight * yInTopLeft + inputImages_strideWidth * xInTopLeft;
-        const int inTopRightAddress = inTopLeftAddress + inputImages_strideWidth;
-        const int inBottomLeftAddress = inTopLeftAddress + inputImages_strideHeight;
-        const int inBottomRightAddress = inBottomLeftAddress + inputImages_strideWidth;
-
-        const int gradInputImagesTopLeftAddress = gradInputImages_strideBatch * b + gradInputImages_strideHeight * yInTopLeft + gradInputImages_strideWidth * xInTopLeft;
-        const int gradInputImagesTopRightAddress = gradInputImagesTopLeftAddress + gradInputImages_strideWidth;
-        const int gradInputImagesBottomLeftAddress = gradInputImagesTopLeftAddress + gradInputImages_strideHeight;
-        const int gradInputImagesBottomRightAddress = gradInputImagesBottomLeftAddress + gradInputImages_strideWidth;
-
-        const int gradOutputAddress = gradOutput_strideBatch * b + gradOutput_strideHeight * yOut + gradOutput_strideWidth * xOut;
-
-        real topLeftDotProduct = 0;
-        real topRightDotProduct = 0;
-        real bottomLeftDotProduct = 0;
-        real bottomRightDotProduct = 0;
-
-        real v=0;
-        real inTopLeft=0;
-        real inTopRight=0;
-        real inBottomLeft=0;
-        real inBottomRight=0;
-
-        // we are careful with the boundaries
-        bool topLeftIsIn = xInTopLeft >= 0 && xInTopLeft <= inputImages_width-1 && yInTopLeft >= 0 && yInTopLeft <= inputImages_height-1;
-        bool topRightIsIn = xInTopLeft+1 >= 0 && xInTopLeft+1 <= inputImages_width-1 && yInTopLeft >= 0 && yInTopLeft <= inputImages_height-1;
-        bool bottomLeftIsIn = xInTopLeft >= 0 && xInTopLeft <= inputImages_width-1 && yInTopLeft+1 >= 0 && yInTopLeft+1 <= inputImages_height-1;
-        bool bottomRightIsIn = xInTopLeft+1 >= 0 && xInTopLeft+1 <= inputImages_width-1 && yInTopLeft+1 >= 0 && yInTopLeft+1 <= inputImages_height-1;
-
-        int t;
-
-        for(t=0; t<inputImages_channels; t++)
-        {
-           real gradOutValue = gradOutput_data[gradOutputAddress + t];
-           if(topLeftIsIn)
-           {
-              real inTopLeft = inputImages_data[inTopLeftAddress + t];
-              topLeftDotProduct += inTopLeft * gradOutValue;
-              if(!onlyGrid) gradInputImages_data[gradInputImagesTopLeftAddress + t] += xWeightTopLeft * yWeightTopLeft * gradOutValue;
-           }
-
-           if(topRightIsIn)
-           {
-              real inTopRight = inputImages_data[inTopRightAddress + t];
-              topRightDotProduct += inTopRight * gradOutValue;
-              if(!onlyGrid) gradInputImages_data[gradInputImagesTopRightAddress + t] += (1 - xWeightTopLeft) * yWeightTopLeft * gradOutValue;
-           }
-
-           if(bottomLeftIsIn)
-           {
-              real inBottomLeft = inputImages_data[inBottomLeftAddress + t];
-              bottomLeftDotProduct += inBottomLeft * gradOutValue;
-              if(!onlyGrid) gradInputImages_data[gradInputImagesBottomLeftAddress + t] += xWeightTopLeft * (1 - yWeightTopLeft) * gradOutValue;
-           }
-
-           if(bottomRightIsIn)
-           {
-              real inBottomRight = inputImages_data[inBottomRightAddress + t];
-              bottomRightDotProduct += inBottomRight * gradOutValue;
-              if(!onlyGrid) gradInputImages_data[gradInputImagesBottomRightAddress + t] += (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * gradOutValue;
-           }
-        }
-
-        yf = - xWeightTopLeft * topLeftDotProduct + xWeightTopLeft * bottomLeftDotProduct - (1-xWeightTopLeft) * topRightDotProduct + (1-xWeightTopLeft) * bottomRightDotProduct;
-        xf = - yWeightTopLeft * topLeftDotProduct + yWeightTopLeft * topRightDotProduct - (1-yWeightTopLeft) * bottomLeftDotProduct + (1-yWeightTopLeft) * bottomRightDotProduct;
-
-        gradGrids_data[b*gradGrids_strideBatch + yOut*gradGrids_strideHeight + xOut*gradGrids_strideWidth] = yf * (inputImages_height-1) / 2;
-        gradGrids_data[b*gradGrids_strideBatch + yOut*gradGrids_strideHeight + xOut*gradGrids_strideWidth + 1] = xf * (inputImages_width-1) / 2;
-
-      }
-    }
-  }
-
-  free(gradOutput_data);
-  return 1;
-}
-*/
