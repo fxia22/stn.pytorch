@@ -2,3 +2,4 @@ int IDWSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
 
 int IDWSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *gradInputImages,
                                         THFloatTensor *gradGrids, THFloatTensor *gradOutput);
+

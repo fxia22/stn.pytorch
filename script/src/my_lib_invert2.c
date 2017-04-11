@@ -558,9 +558,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
 
         gradr[0] = xfg * (inputImages_width-1) / 2;
         gradr[1] = yfg * (inputImages_height-1) / 2;
-          
-        printf("%.4f %.4f, %.4f, %.4f %.4f, %.4f\n", r[0], r[1], xWeightTopLeft, yWeightTopLeft, gradr[0], gradr[1]);
-         
+               
         real target_yf, target_xf;
         target_yf = (float)yOut / (float)(inputImages_height - 1) * 2 - 1;
         target_xf = (float)xOut / (float)(inputImages_width - 1) * 2 - 1;
@@ -748,8 +746,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           num_grad_alpha_r[2][0] = (r2[0] - r[0]) / 1e-3;
           num_grad_alpha_r[2][1] = (r2[1] - r[1]) / 1e-3;
           
-          
-          
+            
           m2[0][0] = alpha[1];
           m2[0][1] = alpha[2];
           m2[1][0] = beta[1] + 1e-3;
@@ -819,3 +816,431 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
   return 1;
 }
 
+/*
+
+
+int InvSamplerBHWD_updateGradInput_num(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *gradInputImages, THFloatTensor *gradGrids, THFloatTensor *gradOutput, THFloatTensor *msave)
+{
+  bool onlyGrid=false;
+
+  int batchsize = inputImages->size[0];
+  int inputImages_height = inputImages->size[1];
+  int inputImages_width = inputImages->size[2];
+  int gradOutput_height = gradOutput->size[1];
+  int gradOutput_width = gradOutput->size[2];
+  int inputImages_channels = inputImages->size[3];
+
+  int gradOutput_strideBatch = gradOutput->stride[0];
+  int gradOutput_strideHeight = gradOutput->stride[1];
+  int gradOutput_strideWidth = gradOutput->stride[2];
+
+  int inputImages_strideBatch = inputImages->stride[0];
+  int inputImages_strideHeight = inputImages->stride[1];
+  int inputImages_strideWidth = inputImages->stride[2];
+
+  int gradInputImages_strideBatch = gradInputImages->stride[0];
+  int gradInputImages_strideHeight = gradInputImages->stride[1];
+  int gradInputImages_strideWidth = gradInputImages->stride[2];
+
+  int grids_strideBatch = grids->stride[0];
+  int grids_strideHeight = grids->stride[1];
+  int grids_strideWidth = grids->stride[2];
+
+  int gradGrids_strideBatch = gradGrids->stride[0];
+  int gradGrids_strideHeight = gradGrids->stride[1];
+  int gradGrids_strideWidth = gradGrids->stride[2];
+    
+    
+    
+  int msave_strideBatch = msave->stride[0];
+  int msave_strideHeight = msave->stride[1];
+  int msave_strideWidth = msave->stride[2];
+
+  real *inputImages_data, *gradOutput_data, *grids_data, *gradGrids_data, *gradInputImages_data, *invgrids_data, *msave_data;
+   
+  real * num_grad = (real *) malloc(sizeof(real) * batchsize * inputImages_width * inputImages_height *inputImages_channels * 8); //4x 4y
+    
+  real * img_out = (real *) malloc(sizeof(real) * batchsize * inputImages_width * inputImages_height *inputImages_channels); 
+  real * img_out_new = (real *) malloc(sizeof(real) * batchsize * inputImages_width * inputImages_height *inputImages_channels); 
+    
+    
+    
+  inputImages_data = THFloatTensor_data(inputImages);
+  gradOutput_data = THFloatTensor_data(gradOutput);
+  grids_data = THFloatTensor_data(grids);
+  invgrids_data = THFloatTensor_data(invgrids);
+    
+  gradGrids_data = THFloatTensor_data(gradGrids);
+  msave_data = THFloatTensor_data(msave);
+  gradInputImages_data = THFloatTensor_data(gradInputImages);
+
+  int b, yOut, xOut;
+   
+  for(b=0; b < batchsize; b++)
+  {
+    for(yOut=0; yOut < gradOutput_height; yOut++)
+    {
+      for(xOut=0; xOut < gradOutput_width; xOut++)
+      {
+          const int Address = gradGrids_strideBatch * b + gradGrids_strideHeight * yOut + gradGrids_strideWidth * xOut;
+          gradGrids_data[Address] = 0;
+          gradGrids_data[Address + 1] = 0;
+          
+      }
+    }
+  }
+    
+   for(b=0; b < batchsize; b++)
+  {
+    for(yOut=0; yOut < gradOutput_height; yOut++)
+    {
+      for(xOut=0; xOut < gradOutput_width; xOut++)
+      {
+          const int gradOutputAddress = gradOutput_strideBatch * b + gradOutput_strideHeight * yOut + gradOutput_strideWidth * xOut;
+          const int msaveAddress = msave_strideBatch * b + msave_strideHeight * yOut + msave_strideWidth * xOut;
+          const int invgridAddress = grids_strideBatch * b + grids_strideHeight * yOut + grids_strideWidth * xOut;
+          
+          real r[2], gradr[2];
+            
+          r[0] = invgrids_data[invgridAddress + 1] ;
+          r[1] = invgrids_data[invgridAddress] ;
+          
+                       
+          //printf("%.4f %.4f\n", r[0], r[1]);
+          
+          real xcoord_source = (r[0] + 1) * (inputImages_width - 1) / 2;
+          real ycoord_source = (r[1] + 1) * (inputImages_height - 1) / 2;
+          
+          real m[3][4];
+          int i,j;
+          
+          for (i = 0; i < 3; i++) {
+              for (j = 0; j < 4; j++)
+                  m[i][j] = msave_data[msaveAddress + i*4 + j];
+          }   
+          
+          real gradalpha[3], gradbeta[3], alpha[3], beta[3];
+          
+          int yInTopLeft, xInTopLeft;
+          real yWeightTopLeft, xWeightTopLeft;
+          xInTopLeft = floor(xcoord_source);
+          xWeightTopLeft = 1 - (xcoord_source - xInTopLeft);
+          yInTopLeft = floor(ycoord_source);
+          yWeightTopLeft = 1 - (ycoord_source - yInTopLeft);
+          
+          const int inTopLeftAddress = inputImages_strideBatch * b + inputImages_strideHeight * yInTopLeft + inputImages_strideWidth * xInTopLeft;
+          const int inTopRightAddress = inTopLeftAddress + inputImages_strideWidth;
+          const int inBottomLeftAddress = inTopLeftAddress + inputImages_strideHeight;
+          const int inBottomRightAddress = inBottomLeftAddress + inputImages_strideWidth;
+
+          const int gradInputImagesTopLeftAddress = gradInputImages_strideBatch * b + gradInputImages_strideHeight * yInTopLeft + gradInputImages_strideWidth * xInTopLeft;
+          const int gradInputImagesTopRightAddress = gradInputImagesTopLeftAddress + gradInputImages_strideWidth;
+          const int gradInputImagesBottomLeftAddress = gradInputImagesTopLeftAddress + gradInputImages_strideHeight;
+          const int gradInputImagesBottomRightAddress = gradInputImagesBottomLeftAddress + gradInputImages_strideWidth;
+
+          real topLeftDotProduct = 0;
+          real topRightDotProduct = 0;
+          real bottomLeftDotProduct = 0;
+          real bottomRightDotProduct = 0;
+
+          real v=0;
+          real inTopLeft=0;
+          real inTopRight=0;
+          real inBottomLeft=0;
+          real inBottomRight=0;
+
+          // we are careful with the boundaries
+          bool topLeftIsIn = xInTopLeft >= 0 && xInTopLeft <= inputImages_width-1 && yInTopLeft >= 0 && yInTopLeft <= inputImages_height-1;
+          bool topRightIsIn = xInTopLeft+1 >= 0 && xInTopLeft+1 <= inputImages_width-1 && yInTopLeft >= 0 && yInTopLeft <= inputImages_height-1;
+          bool bottomLeftIsIn = xInTopLeft >= 0 && xInTopLeft <= inputImages_width-1 && yInTopLeft+1 >= 0 && yInTopLeft+1 <= inputImages_height-1;
+          bool bottomRightIsIn = xInTopLeft+1 >= 0 && xInTopLeft+1 <= inputImages_width-1 && yInTopLeft+1 >= 0 && yInTopLeft+1 <= inputImages_height-1;
+
+          //printf("xInTopLeft,  %d\n", xInTopLeft);
+
+        int t;
+      
+        real target_yf, target_xf;
+        target_yf = (float)yOut / (float)(inputImages_height - 1) * 2 - 1;
+        target_xf = (float)xOut / (float)(inputImages_width - 1) * 2 - 1;
+
+           
+          const int gridinTopLeftAddress = grids_strideBatch * b + grids_strideHeight * yInTopLeft + grids_strideWidth * xInTopLeft;
+          const int gridinTopRightAddress = gridinTopLeftAddress + grids_strideWidth;
+          const int gridinBottomLeftAddress = gridinTopLeftAddress + grids_strideHeight;
+          const int gridinBottomRightAddress = gridinBottomLeftAddress + grids_strideWidth;  
+
+          real x[4], y[4];
+          real m2[2][2], im2[2][2];
+          int q;
+          real d2[2];
+
+          
+          x[0] = grids_data[gridinTopLeftAddress + 1];
+          x[1] = grids_data[gridinBottomLeftAddress + 1];
+          x[2] = grids_data[gridinTopRightAddress + 1];
+          x[3] = grids_data[gridinBottomRightAddress + 1];
+          
+          y[0] = grids_data[gridinTopLeftAddress];
+          y[1] = grids_data[gridinBottomLeftAddress];
+          y[2] = grids_data[gridinTopRightAddress];
+          y[3] = grids_data[gridinBottomRightAddress];
+      
+          
+          for (q = 1; q<4; q++) {
+             x[q] = (x[q] - x[0]) * gradOutput_height;
+             y[q] = (y[q] - y[0]) * gradOutput_height;
+          }
+          
+          dot41(m, x, alpha);
+          dot41(m, y, beta);
+          
+          
+          m2[0][0] = alpha[1];
+          m2[0][1] = alpha[2];
+          m2[1][0] = beta[1];
+          m2[1][1] = beta[2];
+          inv2(m2, im2);
+          
+          
+          d2[0] = target_xf - alpha[0];
+          d2[1] = target_yf - beta[0];
+          
+          real r2[2];
+          dot21(im2, d2, r2);   
+          
+          xcoord_source = (r2[0] + 1) * (inputImages_width - 1) / 2;
+          xInTopLeft = floor(xcoord_source);
+          xWeightTopLeft = 1 - (xcoord_source - xInTopLeft);
+
+          ycoord_source = (r2[1] + 1) * (inputImages_height - 1) / 2;
+          yInTopLeft = floor(ycoord_source);
+          yWeightTopLeft = 1 - (ycoord_source - yInTopLeft);
+
+          //const int outAddress = output_strideBatch * b + output_strideHeight * ycoord + output_strideWidth * xcoord;
+          
+          //const int inTopLeftAddress = inputImages_strideBatch * b + inputImages_strideHeight * yInTopLeft + inputImages_strideWidth * xInTopLeft;
+          //const int inTopRightAddress = inTopLeftAddress + inputImages_strideWidth;
+          //const int inBottomLeftAddress = inTopLeftAddress + inputImages_strideHeight;
+          //const int inBottomRightAddress = inBottomLeftAddress + inputImages_strideWidth;
+
+
+          for(t=0; t<inputImages_channels; t++)
+          {
+              if(topLeftIsIn) inTopLeft = inputImages_data[inTopLeftAddress + t];
+              if(topRightIsIn) inTopRight = inputImages_data[inTopRightAddress + t];
+              if(bottomLeftIsIn) inBottomLeft = inputImages_data[inBottomLeftAddress + t];
+              if(bottomRightIsIn) inBottomRight = inputImages_data[inBottomRightAddress + t];
+
+              v = xWeightTopLeft * yWeightTopLeft * inTopLeft
+                  + (1 - xWeightTopLeft) * yWeightTopLeft * inTopRight
+                  + xWeightTopLeft * (1 - yWeightTopLeft) * inBottomLeft
+                  + (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * inBottomRight;
+
+              img_out[gradOutputAddress + t] = v;
+              //if (outIsIn) output_data[outAddress + t] = v;
+          }
+          
+          
+          for (i = 0; i < 4; i++) 
+          {
+              x[0] = grids_data[gridinTopLeftAddress + 1];
+              x[1] = grids_data[gridinBottomLeftAddress + 1];
+              x[2] = grids_data[gridinTopRightAddress + 1];
+              x[3] = grids_data[gridinBottomRightAddress + 1];
+
+              y[0] = grids_data[gridinTopLeftAddress];
+              y[1] = grids_data[gridinBottomLeftAddress];
+              y[2] = grids_data[gridinTopRightAddress];
+              y[3] = grids_data[gridinBottomRightAddress];
+      
+              x[i] += 1e-4;
+
+              for (q = 1; q<4; q++) {
+                 x[q] = (x[q] - x[0]) * gradOutput_height;
+                 y[q] = (y[q] - y[0]) * gradOutput_height;
+              }
+
+              dot41(m, x, alpha);
+              dot41(m, y, beta);
+
+              m2[0][0] = alpha[1];
+              m2[0][1] = alpha[2];
+              m2[1][0] = beta[1];
+              m2[1][1] = beta[2];
+              inv2(m2, im2);
+
+
+              d2[0] = target_xf - alpha[0];
+              d2[1] = target_yf - beta[0];
+
+              real r2[2];
+              dot21(im2, d2, r2);
+
+              //printf("%f\n", (r2[0] - r[0])/1e-4);
+
+              xcoord_source = (r2[0] + 1) * (inputImages_width - 1) / 2;
+              xInTopLeft = floor(xcoord_source);
+              xWeightTopLeft = 1 - (xcoord_source - xInTopLeft);
+
+              ycoord_source = (r2[1] + 1) * (inputImages_height - 1) / 2;
+              yInTopLeft = floor(ycoord_source);
+              yWeightTopLeft = 1 - (ycoord_source - yInTopLeft);
+
+              //const int outAddress = output_strideBatch * b + output_strideHeight * ycoord + output_strideWidth * xcoord;
+
+              //const int inTopLeftAddress = inputImages_strideBatch * b + inputImages_strideHeight * yInTopLeft + inputImages_strideWidth * xInTopLeft;
+              //const int inTopRightAddress = inTopLeftAddress + inputImages_strideWidth;
+              //const int inBottomLeftAddress = inTopLeftAddress + inputImages_strideHeight;
+              //const int inBottomRightAddress = inBottomLeftAddress + inputImages_strideWidth;
+
+
+              for(t=0; t<inputImages_channels; t++)
+              {
+                  if(topLeftIsIn) inTopLeft = inputImages_data[inTopLeftAddress + t];
+                  if(topRightIsIn) inTopRight = inputImages_data[inTopRightAddress + t];
+                  if(bottomLeftIsIn) inBottomLeft = inputImages_data[inBottomLeftAddress + t];
+                  if(bottomRightIsIn) inBottomRight = inputImages_data[inBottomRightAddress + t];
+
+                  v = xWeightTopLeft * yWeightTopLeft * inTopLeft
+                      + (1 - xWeightTopLeft) * yWeightTopLeft * inTopRight
+                      + xWeightTopLeft * (1 - yWeightTopLeft) * inBottomLeft
+                      + (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * inBottomRight;
+
+                  img_out_new[gradOutputAddress + t] = v;
+                  //if (outIsIn) output_data[outAddress + t] = v;
+              
+                  num_grad[(gradOutputAddress + t) * 8 + i] = (img_out_new[gradOutputAddress + t] - img_out[gradOutputAddress + t])/1e-4;
+
+                  //printf("%.5f\n", num_grad[(gradOutputAddress  + t) * 8 + i]);
+              }
+              
+              
+          }
+          
+          
+          for (i = 0; i < 4; i++) 
+          {
+              x[0] = grids_data[gridinTopLeftAddress + 1];
+              x[1] = grids_data[gridinBottomLeftAddress + 1];
+              x[2] = grids_data[gridinTopRightAddress + 1];
+              x[3] = grids_data[gridinBottomRightAddress + 1];
+
+              y[0] = grids_data[gridinTopLeftAddress];
+              y[1] = grids_data[gridinBottomLeftAddress];
+              y[2] = grids_data[gridinTopRightAddress];
+              y[3] = grids_data[gridinBottomRightAddress];
+      
+              y[i] += 1e-4;
+
+              for (q = 1; q<4; q++) {
+                 x[q] = (x[q] - x[0]) * gradOutput_height;
+                 y[q] = (y[q] - y[0]) * gradOutput_height;
+              }
+
+              dot41(m, x, alpha);
+              dot41(m, y, beta);
+
+
+              m2[0][0] = alpha[1];
+              m2[0][1] = alpha[2];
+              m2[1][0] = beta[1];
+              m2[1][1] = beta[2];
+              inv2(m2, im2);
+
+
+              d2[0] = target_xf - alpha[0];
+              d2[1] = target_yf - beta[0];
+
+              real r2[2];
+              dot21(im2, d2, r2);
+
+
+              xcoord_source = (r2[0] + 1) * (inputImages_width - 1) / 2;
+              xInTopLeft = floor(xcoord_source);
+              xWeightTopLeft = 1 - (xcoord_source - xInTopLeft);
+
+              ycoord_source = (r2[1] + 1) * (inputImages_height - 1) / 2;
+              yInTopLeft = floor(ycoord_source);
+              yWeightTopLeft = 1 - (ycoord_source - yInTopLeft);
+
+              //const int outAddress = output_strideBatch * b + output_strideHeight * ycoord + output_strideWidth * xcoord;
+
+              //const int inTopLeftAddress = inputImages_strideBatch * b + inputImages_strideHeight * yInTopLeft + inputImages_strideWidth * xInTopLeft;
+              //const int inTopRightAddress = inTopLeftAddress + inputImages_strideWidth;
+              //const int inBottomLeftAddress = inTopLeftAddress + inputImages_strideHeight;
+              //const int inBottomRightAddress = inBottomLeftAddress + inputImages_strideWidth;
+
+
+              for(t=0; t<inputImages_channels; t++)
+              {
+                  if(topLeftIsIn) inTopLeft = inputImages_data[inTopLeftAddress + t];
+                  if(topRightIsIn) inTopRight = inputImages_data[inTopRightAddress + t];
+                  if(bottomLeftIsIn) inBottomLeft = inputImages_data[inBottomLeftAddress + t];
+                  if(bottomRightIsIn) inBottomRight = inputImages_data[inBottomRightAddress + t];
+
+                  v = xWeightTopLeft * yWeightTopLeft * inTopLeft
+                      + (1 - xWeightTopLeft) * yWeightTopLeft * inTopRight
+                      + xWeightTopLeft * (1 - yWeightTopLeft) * inBottomLeft
+                      + (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * inBottomRight;
+
+                  img_out_new[gradOutputAddress + t] = v;
+                  //if (outIsIn) output_data[outAddress + t] = v;
+                  num_grad[(gradOutputAddress + t) * 8 + i + 4] = (img_out_new[gradOutputAddress + t] - img_out[gradOutputAddress + t])/1e-4;
+                  //printf("%.5f\n", num_grad[(gradOutputAddress+t) * 8 + i + 4]);
+              }
+              //printf("%f %f\n", img_out[gradOutputAddress], img_out_new[gradOutputAddress]);
+              
+          }
+          
+          real gradx[4] = {0,0,0,0};
+          real grady[4] = {0,0,0,0};
+          
+          for(t=0; t<inputImages_channels; t++){
+              real gradout = gradOutput_data[gradOutputAddress + t];
+              
+              gradx[0] += gradout * num_grad[(gradOutputAddress + t) * 8];
+              gradx[1] += gradout * num_grad[(gradOutputAddress + t) * 8 + 1];
+              gradx[2] += gradout * num_grad[(gradOutputAddress + t) * 8 + 2];
+              gradx[3] += gradout * num_grad[(gradOutputAddress + t) * 8 + 3];
+              
+              grady[0] += gradout * num_grad[(gradOutputAddress + t) * 8 + 4];
+              grady[1] += gradout * num_grad[(gradOutputAddress + t) * 8 + 5];
+              grady[2] += gradout * num_grad[(gradOutputAddress + t) * 8 + 6];
+              grady[3] += gradout * num_grad[(gradOutputAddress + t) * 8 + 7];
+                   
+          }
+
+          
+          if ((abs_real(r[0]) >1e-5) && (abs_real(r[1] > 1e-5))) {
+              gradGrids_data[gridinTopLeftAddress] += grady[0];
+              gradGrids_data[gridinTopLeftAddress + 1] += gradx[0];
+              
+              gradGrids_data[gridinBottomLeftAddress] += grady[1];
+              gradGrids_data[gridinBottomLeftAddress + 1] += gradx[1];
+              
+              gradGrids_data[gridinTopRightAddress] += grady[2];
+              gradGrids_data[gridinTopRightAddress + 1] += gradx[2];
+              
+              gradGrids_data[gridinBottomRightAddress] += grady[3];
+              gradGrids_data[gridinBottomRightAddress + 1] += gradx[3];
+
+          }
+          
+          //printf("x %.3f %.3f %.3f %.3f\n", gradx[0], gradx[1], gradx[2], gradx[3]);
+          //printf("y %.3f %.3f %.3f %.3f\n", grady[0], grady[1], grady[2], grady[3]);
+          //printf("%.3f %.3f %.3f %.3f\n", r[0], r[1], r2[0], r2[1]);
+
+          
+      }
+    }
+   }
+
+  free(num_grad);
+  free(img_out);
+  free(img_out_new);
+   
+  return 1;
+}
+
+
+*/
