@@ -296,7 +296,7 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
         //printf("%.2f, %.2f \n%.2f, %.2f \n\n", im2[0][0], im2[0][1], im2[1][0], im2[1][1]);
     
         int xcoord, ycoord; 
-        if ((maxxcoord - minxcoord) *  (maxycoord - minycoord) < 50)
+        if ((maxxcoord - minxcoord) *  (maxycoord - minycoord) < 200)
             for (xcoord = minxcoord;  xcoord < maxxcoord; xcoord ++)
                 for (ycoord = minycoord; ycoord < maxycoord; ycoord ++) {
                      
@@ -549,19 +549,19 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
               if(!onlyGrid) gradInputImages_data[gradInputImagesBottomRightAddress + t] += (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * gradOutValue;
            }
           }
-          real yfg,xfg;
-          
-          
+          real yfg,xfg;   
 
           yfg = - xWeightTopLeft * topLeftDotProduct + xWeightTopLeft * bottomLeftDotProduct - (1-xWeightTopLeft) * topRightDotProduct + (1-xWeightTopLeft) * bottomRightDotProduct;
           xfg = - yWeightTopLeft * topLeftDotProduct + yWeightTopLeft * topRightDotProduct - (1-yWeightTopLeft) * bottomLeftDotProduct + (1-yWeightTopLeft) * bottomRightDotProduct;
 
-        gradr[0] = xfg * (inputImages_width-1) / 2;
-        gradr[1] = yfg * (inputImages_height-1) / 2;
-               
-        real target_yf, target_xf;
-        target_yf = (float)yOut / (float)(inputImages_height - 1) * 2 - 1;
-        target_xf = (float)xOut / (float)(inputImages_width - 1) * 2 - 1;
+          gradr[0] = xfg * (inputImages_width-1) / 2;
+          gradr[1] = yfg * (inputImages_height-1) / 2;
+
+          //printf("%f %f %f %f\n", r[0], r[1], gradr[0], gradr[1]);     
+
+          real target_yf, target_xf;
+          target_yf = (float)yOut / (float)(inputImages_height - 1) * 2 - 1;
+          target_xf = (float)xOut / (float)(inputImages_width - 1) * 2 - 1;
 
            
           const int gridinTopLeftAddress = grids_strideBatch * b + grids_strideHeight * yInTopLeft + grids_strideWidth * xInTopLeft;
@@ -670,9 +670,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           
           //printf("x %.3f %.3f %.3f %.3f\n", gradx[0], gradx[1], gradx[2], gradx[3]);
           //printf("y %.3f %.3f %.3f %.3f\n", grady[0], grady[1], grady[2], grady[3]);
-          
           //printf("%.3f %.3f %.3f %.3f\n", r[0], r[1], gradx[0], grady[0]);
-          
 
           if ((abs_real(r[0]) >1e-5) && (abs_real(r[1] > 1e-5))) {
               gradGrids_data[gridinTopLeftAddress] += grady[0];
@@ -696,7 +694,6 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           
           // grad checks
           
-
           m2[0][0] = alpha[1] + 1e-3;
           m2[0][1] = alpha[2];
           m2[1][0] = beta[1];
@@ -795,6 +792,18 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           num_grad_beta_r[2][1] = (r2[1] - r[1]) / 1e-3;
           
  
+          for (i = 0; i < 2; i++)
+              for (j = 0; j < 3; j++) {
+              real error = (num_grad_beta_r[j][i] - grad_beta_r[j][i])/grad_beta_r[j][i];
+              if (abs_real(error) > 1e-1) printf("%f %f %f\n", error, num_grad_beta_r[j][i], grad_beta_r[j][i]);
+          }
+          
+          for (i = 0; i < 2; i++)
+              for (j = 0; j < 3; j++) {
+              real error = (num_grad_alpha_r[j][i] - grad_alpha_r[j][i])/grad_alpha_r[j][i];
+              if (abs_real(error) > 1e-1) printf("%f %f %f\n", error, num_grad_alpha_r[j][i], grad_alpha_r[j][i]);
+          }
+          
           //printf("%.4f, %.4f\n",  num_grad_beta_r[2][1],  grad_beta_r[2][1]);
            
            
