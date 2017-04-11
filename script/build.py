@@ -4,8 +4,8 @@ from torch.utils.ffi import create_extension
 
 this_file = os.path.dirname(__file__)
 
-sources = ['src/my_lib.c', 'src/kdtree.c', 'src/my_lib_invert3.c']
-headers = ['src/my_lib.h', 'src/kdtree.h', 'src/my_lib_invert3.h']
+sources = ['src/my_lib.c', 'src/kdtree.c', 'src/my_lib_invert4.c']
+headers = ['src/my_lib.h', 'src/kdtree.h', 'src/my_lib_invert2.h']
 defines = []
 with_cuda = False
 
