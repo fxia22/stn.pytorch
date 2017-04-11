@@ -673,8 +673,8 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           //printf("%.3f %.3f %.3f %.3f\n", r[0], r[1], gradx[0], grady[0]);
 
           if ((abs_real(r[0]) >1e-5) && (abs_real(r[1] > 1e-5))) {
-              gradGrids_data[gridinTopLeftAddress] += grady[0];
-              gradGrids_data[gridinTopLeftAddress + 1] += gradx[0];
+              //gradGrids_data[gridinTopLeftAddress] += grady[0];
+              //gradGrids_data[gridinTopLeftAddress + 1] += gradx[0];
               
               gradGrids_data[gridinBottomLeftAddress] += grady[1];
               gradGrids_data[gridinBottomLeftAddress + 1] += gradx[1];
@@ -691,9 +691,13 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
               //x[3] = grids_data[gridinBottomRightAddress + 1];
 
           }
+          dot21(im2, d2, r2);
+          //printf("%.8f %.8f %.8f %.8f\n", r[0], r[1], r2[0], r2[1]);
+          
+          
           
           // grad checks
-          /*
+          
           m2[0][0] = alpha[1] + 1e-3;
           m2[0][1] = alpha[2];
           m2[1][0] = beta[1];
@@ -802,7 +806,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
               for (j = 0; j < 3; j++) {
               real error = (num_grad_alpha_r[j][i] - grad_alpha_r[j][i])/grad_alpha_r[j][i];
               if (abs_real(error) > 1e-1) printf("%f %f %f\n", error, num_grad_alpha_r[j][i], grad_alpha_r[j][i]);
-          }*/
+          }
           
           //printf("%.4f, %.4f\n",  num_grad_beta_r[2][1],  grad_beta_r[2][1]);
            
@@ -813,7 +817,7 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
           //printf("%.3f %.3f %.3f %.3f %.3f %.3f\n",grad_beta_r[0][0], grad_beta_r[0][1], grad_beta_r[1][0], grad_beta_r[1][1], grad_beta_r[2][0], grad_beta_r[2][1]);
 
           
-          //printf("%.8f %.8f %.8f %.8f\n", r[0], r[1], r2[0], r2[1]);
+         
            
           
           //printf("%.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f\n", alpha[0], alpha[1], alpha[2], beta[0], beta[1], beta[2], target_yf, target_yf);
