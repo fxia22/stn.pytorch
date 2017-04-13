@@ -9,10 +9,9 @@ class STNInvertFunction(Function):
         self.input1 = input1
         self.input2 = input2
         self.invgrid = torch.zeros(input2.size())
-        self.m = torch.zeros(input1.size()[0], input1.size()[1], input1.size()[2], 12)    
         output = torch.zeros(input1.size())
         if not input1.is_cuda:
-            my_lib.InvSamplerBHWD_updateOutput(input1, input2, self.invgrid, output, self.m)
+            my_lib.InvSamplerBHWD_updateOutput(input1, input2, self.invgrid, output)
         else:
             print 'not implemented'
         return output#, self.invgrid
@@ -21,7 +20,7 @@ class STNInvertFunction(Function):
         grad_input1 = torch.zeros(self.input1.size())
         grad_input2 = torch.zeros(self.input2.size())
         if not grad_output.is_cuda:
-            my_lib.InvSamplerBHWD_updateGradInput(self.input1, self.input2, self.invgrid, grad_input1, grad_input2, grad_output, self.m)
+            my_lib.InvSamplerBHWD_updateGradInput(self.input1, self.input2, self.invgrid, grad_input1, grad_input2, grad_output)
         else:
             print 'not implemented'
         return grad_input1, grad_input2

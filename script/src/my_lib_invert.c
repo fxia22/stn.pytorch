@@ -135,7 +135,7 @@ real abs_real(real num) {
     return (num > 0)?num:-num;
 }
     
-int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *output, THFloatTensor *msave)
+int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *output)
 {
 
   int batchsize = inputImages->size[0];
@@ -149,10 +149,7 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
   int output_strideHeight = output->stride[1];
   int output_strideWidth = output->stride[2];
     
-    
-  int msave_strideBatch = msave->stride[0];
-  int msave_strideHeight = msave->stride[1];
-  int msave_strideWidth = msave->stride[2];
+
 
   int inputImages_strideBatch = inputImages->stride[0];
   int inputImages_strideHeight = inputImages->stride[1];
@@ -168,7 +165,6 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
   output_data = THFloatTensor_data(output);
   grids_data = THFloatTensor_data(grids);
   invgrids_data = THFloatTensor_data(invgrids);
-  msave_data = THFloatTensor_data(msave);
   
   int tradeb, yOut, xOut, k;
 
@@ -271,7 +267,6 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                         
                         const int outAddress = output_strideBatch * b + output_strideHeight * ycoord + output_strideWidth * xcoord;
                         const int outGridAddress = grids_strideBatch * b + grids_strideHeight * ycoord + grids_strideWidth * xcoord;
-                        const int msaveAddress = msave_strideBatch * b + msave_strideHeight * ycoord + msave_strideWidth * xcoord;
                         const int inTopLeftAddress = inputImages_strideBatch * b + inputImages_strideHeight * yInTopLeft + inputImages_strideWidth * xInTopLeft;
                         const int inTopRightAddress = inTopLeftAddress + inputImages_strideWidth;
                         const int inBottomLeftAddress = inTopLeftAddress + inputImages_strideHeight;
@@ -311,13 +306,7 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                         
                         if (outIsIn) invgrids_data[outGridAddress] = (float)yOut;
                         if (outIsIn) invgrids_data[outGridAddress+1] = (float)xOut; // x - [+1], y - [0]
-                        int i,j;
-                        if (outIsIn) {
-                            for (i = 0; i < 3; i++) {
-                                    for (j = 0; j < 4; j++)
-                                     msave_data[msaveAddress + i*4 + j] = m[i][j];
-                            } 
-                        }
+                        
                
                     } 
         }
@@ -329,7 +318,7 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
   return 1;
 }
 
-int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *gradInputImages, THFloatTensor *gradGrids, THFloatTensor *gradOutput, THFloatTensor *msave)
+int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *gradInputImages, THFloatTensor *gradGrids, THFloatTensor *gradOutput)
 {
   bool onlyGrid=false;
 
@@ -359,24 +348,17 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
   int gradGrids_strideBatch = gradGrids->stride[0];
   int gradGrids_strideHeight = gradGrids->stride[1];
   int gradGrids_strideWidth = gradGrids->stride[2];
-    
-    
-    
-  int msave_strideBatch = msave->stride[0];
-  int msave_strideHeight = msave->stride[1];
-  int msave_strideWidth = msave->stride[2];
+   
 
-  real *inputImages_data, *gradOutput_data, *grids_data, *gradGrids_data, *gradInputImages_data, *invgrids_data, *msave_data;
-    
-    
-    
+
+  real *inputImages_data, *gradOutput_data, *grids_data, *gradGrids_data, *gradInputImages_data, *invgrids_data;
+  
   inputImages_data = THFloatTensor_data(inputImages);
   gradOutput_data = THFloatTensor_data(gradOutput);
   grids_data = THFloatTensor_data(grids);
   invgrids_data = THFloatTensor_data(invgrids);
     
   gradGrids_data = THFloatTensor_data(gradGrids);
-  msave_data = THFloatTensor_data(msave);
   gradInputImages_data = THFloatTensor_data(gradInputImages);
 
   int b, yOut, xOut;
@@ -402,7 +384,6 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
       for(xOut=0; xOut < gradOutput_width; xOut++)
       {
           const int gradOutputAddress = gradOutput_strideBatch * b + gradOutput_strideHeight * yOut + gradOutput_strideWidth * xOut;
-          const int msaveAddress = msave_strideBatch * b + msave_strideHeight * yOut + msave_strideWidth * xOut;
           const int invgridAddress = grids_strideBatch * b + grids_strideHeight * yOut + grids_strideWidth * xOut;
           
           real r[2], gradr[2];
