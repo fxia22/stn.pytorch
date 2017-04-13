@@ -135,7 +135,7 @@ real abs_real(real num) {
     return (num > 0)?num:-num;
 }
     
-int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *output)
+int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *output, THFloatTensor *depth_map)
 {
 
   int batchsize = inputImages->size[0];
@@ -149,6 +149,9 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
   int output_strideHeight = output->stride[1];
   int output_strideWidth = output->stride[2];
     
+  int depth_strideBatch = depth_map->stride[0];
+  int depth_strideHeight = depth_map->stride[1];
+  int depth_strideWidth = depth_map->stride[2];
 
 
   int inputImages_strideBatch = inputImages->stride[0];
@@ -160,12 +163,17 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
   int grids_strideWidth = grids->stride[2];
 
 
-  real *inputImages_data, *output_data, *grids_data, *invgrids_data, *msave_data;
+  real *inputImages_data, *output_data, *grids_data, *invgrids_data, *depth_data;
   inputImages_data = THFloatTensor_data(inputImages);
   output_data = THFloatTensor_data(output);
   grids_data = THFloatTensor_data(grids);
   invgrids_data = THFloatTensor_data(invgrids);
-  
+    
+  depth_data = THFloatTensor_data(depth_map);  
+    
+  real * target_depth_data = (real *)malloc(sizeof(real) * output_height * output_width * batchsize);
+    
+
   int tradeb, yOut, xOut, k;
 
   real x[4], y[4], alpha[3], beta[3];
@@ -177,6 +185,17 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
     
   int b;
   
+  for(b=0; b < batchsize; b++)
+  {
+    for(yOut=0; yOut < output_height - 1; yOut++)
+    {
+      for(xOut=0; xOut < output_width - 1; xOut++) {
+          const int outdepthAddress = depth_strideBatch * b + depth_strideHeight * yOut + depth_strideWidth * xOut;
+          target_depth_data[outdepthAddress] = 1e5;
+      }
+    }
+  }
+    
   for(b=0; b < batchsize; b++)
   {
     for(yOut=0; yOut < output_height - 1; yOut++)
@@ -271,6 +290,9 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                         const int inTopRightAddress = inTopLeftAddress + inputImages_strideWidth;
                         const int inBottomLeftAddress = inTopLeftAddress + inputImages_strideHeight;
                         const int inBottomRightAddress = inBottomLeftAddress + inputImages_strideWidth;
+                        
+                        const int indepthAddress = depth_strideBatch * b + depth_strideHeight * yInTopLeft + depth_strideWidth * xInTopLeft;
+                        const int outdepthAddress = depth_strideBatch * b + depth_strideHeight * ycoord + depth_strideWidth * xcoord;
                                                                    
                         real v=0;
                         real inTopLeft=0;
@@ -299,13 +321,22 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                              + xWeightTopLeft * (1 - yWeightTopLeft) * inBottomLeft
                              + (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * inBottomRight;
 
-                           if (outIsIn) output_data[outAddress + t] = v;
+                           if (outIsIn)
+                           if (depth_data[indepthAddress] < target_depth_data[outdepthAddress])
+                               output_data[outAddress + t] = v;
+                        
                         }
                         
-                        if (outIsIn) invgrids_data[outGridAddress] = (float)yOut;
-                        if (outIsIn) invgrids_data[outGridAddress+1] = (float)xOut; // x - [+1], y - [0]
+                        if (outIsIn)
+                        if (depth_data[indepthAddress] < target_depth_data[outdepthAddress]) {
+                             invgrids_data[outGridAddress] = (float)yOut;
+                             invgrids_data[outGridAddress+1] = (float)xOut; // x - [+1], y - [0]
+                        }
                         
-               
+                        if (outIsIn)
+                        if (depth_data[indepthAddress] < target_depth_data[outdepthAddress]) {
+                            target_depth_data[outdepthAddress] = depth_data[indepthAddress];
+                        }
                     } 
         }
 
@@ -313,6 +344,7 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
     }
   }
 
+  free(target_depth_data);
   return 1;
 }
 

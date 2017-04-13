@@ -5,13 +5,17 @@ from _ext import my_lib
 
 
 class STNInvertFunction(Function):
-    def forward(self, input1, input2):
+    def forward(self, input1, input2, depth_map = None):
         self.input1 = input1
         self.input2 = input2
         self.invgrid = torch.zeros(input2.size())
         output = torch.zeros(input1.size())
+        
+        if depth_map is None:
+            depth_map = torch.zeros(input1.size()[0], input1.size()[1], input1.size()[2], 1)
+        
         if not input1.is_cuda:
-            my_lib.InvSamplerBHWD_updateOutput(input1, input2, self.invgrid, output)
+            my_lib.InvSamplerBHWD_updateOutput(input1, input2, self.invgrid, output, depth_map)
         else:
             print 'not implemented'
         return output#, self.invgrid
