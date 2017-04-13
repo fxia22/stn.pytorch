@@ -249,10 +249,10 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                     real r[2];
                     dot21(im2, d2, r); // r[0] x, r[1] y;
             
-            
+                    real slack = 1e-3;
                     //printf("%f %f\n", r[0], r[1]);
                     //printf("%.4f = %.4f\n", alpha[0] + alpha[1] * r[0] + alpha[2] * r[1], xf);
-                    if ((0 < r[0] ) && (r[0] < 1) &&(0 < r[1]) && (r[1] < 1)) {
+                    if ((-slack < r[0]) && (r[0] < 1+slack) &&(-slack < r[1]) && (r[1] < 1 + slack)) {
                         //printf("%.4f, %.4f | %.4f %.4f \n", r[0], r[1], basex[0], basey[0]);
                         int yInTopLeft, xInTopLeft;
                         real yWeightTopLeft, xWeightTopLeft;
@@ -271,9 +271,7 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                         const int inTopRightAddress = inTopLeftAddress + inputImages_strideWidth;
                         const int inBottomLeftAddress = inTopLeftAddress + inputImages_strideHeight;
                         const int inBottomRightAddress = inBottomLeftAddress + inputImages_strideWidth;
-                        
-                        
-                                                               
+                                                                   
                         real v=0;
                         real inTopLeft=0;
                         real inTopRight=0;
