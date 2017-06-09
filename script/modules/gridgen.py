@@ -304,11 +304,11 @@ class Depth3DGridGen(Module):
             self.batchgrid[i] = self.grid
 
         self.batchgrid = Variable(self.batchgrid)
-        
+
         if depth.is_cuda:
             self.batchgrid3d = self.batchgrid3d.cuda()
             self.batchgrid = self.batchgrid.cuda()
-        
+
 
         x0 = self.batchgrid3d[:,:,:,0:1] * depth + trans0.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
         y0 = self.batchgrid3d[:,:,:,1:2] * depth + trans1.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
@@ -341,12 +341,10 @@ class Depth3DGridGen(Module):
 
         phi = phi/np.pi
 
-
         output = torch.cat([theta,phi], 3)
         output2 = torch.cat([output[:,:,:,0:1] , output[:,:,:,1:2] ], 3)
 
         return output2, r
-
 
 
 
