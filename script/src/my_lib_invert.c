@@ -221,6 +221,26 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
         y[2] = grids_data[inTopRightAddress];
         y[3] = grids_data[inBottomRightAddress];
           
+          
+        //if (abs_real(x[2] - x[0]) > 1) {
+        //    if (x[0] < 0) x[0] += 2;
+        //    if (x[2] < 0) x[2] += 2;
+        //}
+        //  
+        //if (abs_real(x[3] - x[1]) > 1) {
+        //    if (x[1] < 0) x[1] += 2;
+        //    if (x[3] < 0) x[3] += 2;
+        //}
+        
+          
+        float dx1 = x[2] - x[0];
+        float dy1 = y[2] - y[0];
+         
+        float dx2 = x[1] - x[0];
+        float dy2 = y[1] - y[0];
+        float normal = (dx1 * dy2) - (dx2 * dy1);
+          
+          
         
         real m[3][4] = {{ 0.7500,    0.2500,    0.2500,   -0.2500},{-0.5000,   -0.5000,    0.5000,    0.5000},{-0.5000,    0.5000,   -0.5000,    0.5000}};  
          
@@ -254,7 +274,11 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
         //printf("%.2f, %.2f \n%.2f, %.2f \n\n", im2[0][0], im2[0][1], im2[1][0], im2[1][1]);
     
         int xcoord, ycoord; 
-        if ((maxxcoord - minxcoord) *  (maxycoord - minycoord) < 25)
+         
+        int scaling = (maxxcoord - minxcoord) *  (maxycoord - minycoord);
+          
+        if (normal > 0)
+        if ((maxxcoord - minxcoord) < inputImages_width / 2)
             for (xcoord = minxcoord;  xcoord < maxxcoord; xcoord ++)
                 for (ycoord = minycoord; ycoord < maxycoord; ycoord ++) {
                      
@@ -268,7 +292,7 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                     real r[2];
                     dot21(im2, d2, r); // r[0] x, r[1] y;
             
-                    real slack = 1e-3;
+                    real slack = 0;
                     //printf("%f %f\n", r[0], r[1]);
                     //printf("%.4f = %.4f\n", alpha[0] + alpha[1] * r[0] + alpha[2] * r[1], xf);
                     if ((-slack < r[0]) && (r[0] < 1+slack) &&(-slack < r[1]) && (r[1] < 1 + slack)) {
@@ -321,20 +345,28 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                              + xWeightTopLeft * (1 - yWeightTopLeft) * inBottomLeft
                              + (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * inBottomRight;
 
+                           if (scaling < 36){
                            if (outIsIn)
-                           if (depth_data[indepthAddress] < target_depth_data[outdepthAddress])
+                           if ((depth_data[indepthAddress] < target_depth_data[outdepthAddress]) && (depth_data[indepthAddress] > 0))
                                output_data[outAddress + t] = v;
+                           }
+                            else {
+                                if (outIsIn) {
+                                output_data[outAddress + t] = 0;
+                                target_depth_data[outdepthAddress] = 0;
+                                }
+                            }
                         
                         }
                         
                         if (outIsIn)
-                        if (depth_data[indepthAddress] < target_depth_data[outdepthAddress]) {
+                        if ((depth_data[indepthAddress] < target_depth_data[outdepthAddress]) && (depth_data[indepthAddress] > 0)) {
                              invgrids_data[outGridAddress] = (float)yOut;
                              invgrids_data[outGridAddress+1] = (float)xOut; // x - [+1], y - [0]
                         }
                         
                         if (outIsIn)
-                        if (depth_data[indepthAddress] < target_depth_data[outdepthAddress]) {
+                        if ((depth_data[indepthAddress] < target_depth_data[outdepthAddress]) && (depth_data[indepthAddress] > 0)) {
                             target_depth_data[outdepthAddress] = depth_data[indepthAddress];
                         }
                     } 

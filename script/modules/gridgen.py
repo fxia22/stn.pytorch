@@ -4,7 +4,10 @@ from torch.autograd import Variable
 import numpy as np
 from functions.gridgen import AffineGridGenFunction, CylinderGridGenFunction
 
-from ray import ray_tracing_v2, ray_tracing, ray_tracing_v1
+import pyximport
+pyximport.install(setup_args={"include_dirs":np.get_include()},
+                  reload_support=True)
+
 
 class AffineGridGen(Module):
     def __init__(self, height, width, lr = 1, aux_loss = False):
@@ -63,6 +66,10 @@ class AffineGridGenV2(Module):
         for i in range(input1.size(0)):
             self.batchgrid[i] = self.grid
         self.batchgrid = Variable(self.batchgrid)
+
+        if input1.is_cuda:
+            self.batchgrid = self.batchgrid.cuda()
+
         output = torch.bmm(self.batchgrid.view(-1, self.height*self.width, 3), torch.transpose(input1, 1, 2)).view(-1, self.height, self.width, 2)
 
         return output
@@ -119,10 +126,6 @@ class DenseAffineGridGen(Module):
             self.batchgrid[i] = self.grid
 
         self.batchgrid = Variable(self.batchgrid)
-        
-        if input1.is_cuda:
-            self.batchgrid = self.batchgrid.cuda()
-        
         #print self.batchgrid,  input1[:,:,:,0:3]
         #print self.batchgrid,  input1[:,:,:,4:6]
         x = torch.mul(self.batchgrid, input1[:,:,:,0:3])
@@ -150,7 +153,7 @@ class DenseAffine3DGridGen(Module):
         self.theta = self.grid[:,:,0] * np.pi/2 + np.pi/2
         self.phi = self.grid[:,:,1] * np.pi
 
-        self.x = torch.sin(self.theta) * torch.cos(self.phi)
+        self.x = torch.sin(self.theta)  * torch.cos(self.phi)
         self.y = torch.sin(self.theta) * torch.sin(self.phi)
         self.z = torch.cos(self.theta)
 
@@ -182,8 +185,8 @@ class DenseAffine3DGridGen(Module):
         #phi = torch.atan(y/x)
         phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
         phi = phi/np.pi
-        
-        
+
+
         output = torch.cat([theta,phi], 3)
 
         return output
@@ -303,46 +306,50 @@ class Depth3DGridGen(Module):
         self.batchgrid = Variable(self.batchgrid)
         
         if depth.is_cuda:
-            self.batchgrid = self.batchgrid.cuda()
             self.batchgrid3d = self.batchgrid3d.cuda()
-            
+            self.batchgrid = self.batchgrid.cuda()
+        
 
-        x = self.batchgrid3d[:,:,:,0:1] * depth + trans0.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+        x0 = self.batchgrid3d[:,:,:,0:1] * depth + trans0.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+        y0 = self.batchgrid3d[:,:,:,1:2] * depth + trans1.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+        rotate0 = rotate.view(-1,1,1,1).repeat(1,self.height, self.width,1) * np.pi
 
-        y = self.batchgrid3d[:,:,:,1:2] * depth + trans1.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+        x = x0 * torch.cos(rotate0) - y0 * torch.sin(rotate0)
+        y = x0 * torch.sin(rotate0) + y0 * torch.cos(rotate0)
+
+
+        #x +=  trans0.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+        #y +=  trans1.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
+
         z = self.batchgrid3d[:,:,:,2:3] * depth
         #print(x.size(), y.size(), z.size())
-        r = torch.sqrt(x**2 + y**2 + z**2) + 1e-5
+        r = torch.sqrt(x**2 + y**2 + z**2) + 1e-3
 
-        #print(r)
+        #if depth.is_cuda:
+        #    r_large_enough = r.gt(0.2).type(torch.cuda.FloatTensor)
+        #else:
+        #    r_large_enough = r.gt(0.2).type(torch.FloatTensor)
+
         theta = torch.acos(z/r)/(np.pi/2)  - 1
         #phi = torch.atan(y/x)
-        
+
         if depth.is_cuda:
-            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.cuda.FloatTensor) * (y.ge(0).type(torch.cuda.FloatTensor) - y.lt(0).type(torch.cuda.FloatTensor))        
+            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.cuda.FloatTensor) * (y.ge(0).type(torch.cuda.FloatTensor) - y.lt(0).type(torch.cuda.FloatTensor))
         else:
             phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
-        
-        
-        
-        phi = phi/np.pi
-        
-        #print(theta.size(), phi.size())
 
-        
-        input_u = rotate.view(-1,1,1,1).repeat(1,self.height, self.width,1)
+
+        phi = phi/np.pi
+
 
         output = torch.cat([theta,phi], 3)
-        #print(output.size())
+        output2 = torch.cat([output[:,:,:,0:1] , output[:,:,:,1:2] ], 3)
 
-        output1 = torch.atan(torch.tan(np.pi/2.0*(output[:,:,:,1:2] + self.batchgrid[:,:,:,2:] * input_u[:,:,:,:])))  /(np.pi/2)
-        output2 = torch.cat([output[:,:,:,0:1], output1], 3)
+        return output2, r
 
-        return output2
-        
-        
-        
-        
+
+
+
 
 class Depth3DGridGen_with_mask(Module):
     def __init__(self, height, width, lr = 1, aux_loss = False, ray_tracing = False):
@@ -387,60 +394,114 @@ class Depth3DGridGen_with_mask(Module):
             self.batchgrid[i] = self.grid
 
         self.batchgrid = Variable(self.batchgrid)
-        
+
         if depth.is_cuda:
             self.batchgrid = self.batchgrid.cuda()
             self.batchgrid3d = self.batchgrid3d.cuda()
-            
+
 
         x_ = self.batchgrid3d[:,:,:,0:1] * depth + trans0.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
 
         y_ = self.batchgrid3d[:,:,:,1:2] * depth + trans1.view(-1,1,1,1).repeat(1, self.height, self.width, 1)
         z = self.batchgrid3d[:,:,:,2:3] * depth
         #print(x.size(), y.size(), z.size())
-        
+
         rotate_z = rotate.view(-1,1,1,1).repeat(1,self.height, self.width,1) * np.pi
-        
+
         x = x_ * torch.cos(rotate_z) - y_ * torch.sin(rotate_z)
         y = x_ * torch.sin(rotate_z) + y_ * torch.cos(rotate_z)
-         
-        
+
+
         r = torch.sqrt(x**2 + y**2 + z**2) + 1e-5
 
         #print(r)
         theta = torch.acos(z/r)/(np.pi/2)  - 1
         #phi = torch.atan(y/x)
-        
+
         if depth.is_cuda:
-            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.cuda.FloatTensor) * (y.ge(0).type(torch.cuda.FloatTensor) - y.lt(0).type(torch.cuda.FloatTensor))        
+            phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.cuda.FloatTensor) * (y.ge(0).type(torch.cuda.FloatTensor) - y.lt(0).type(torch.cuda.FloatTensor))
         else:
             phi = torch.atan(y/(x + 1e-5))  + np.pi * x.lt(0).type(torch.FloatTensor) * (y.ge(0).type(torch.FloatTensor) - y.lt(0).type(torch.FloatTensor))
-        
-        
-        phi = phi/np.pi   
-        
+
+
+        phi = phi/np.pi
+
         if self.ray_tracing:
             theta_np = theta[:,:,:,0].cpu().detach().data.numpy()
             phi_np = phi[:,:,:,0].cpu().detach().data.numpy()
             r_np = r[:,:,:,0].cpu().detach().data.numpy()
             depth_np = depth[:,:,:,0].cpu().detach().data.numpy()
-            
+
             #import pickle as pkl
             #pkl.dump([theta_np, phi_np, r_np, depth_np], open('save.pkl', 'w'))
-            
+
             dia = np.arctan(np.tan(np.pi/float(self.height)) / (depth_np+1e-5) * r_np) / np.tan(np.pi/float(self.height))
             dia = np.ceil(dia)
             occupancy, occupancy_input = ray_tracing_v2.trace(theta_np, phi_np, r_np, dia)
-            
+
             occupancy = torch.from_numpy(occupancy)
             occupancy_input = torch.from_numpy(occupancy_input)
-            
+
             if depth.is_cuda:
                 occupancy, occupancy_input = occupancy.cuda(), occupancy_input.cuda()
-                            
+
             output = torch.cat([theta,phi], 3)
             return output, occupancy, occupancy_input
 
         else:
             output = torch.cat([theta,phi], 3)
             return output
+
+
+
+
+class RotateGridGen(Module):
+    def __init__(self, height, width, lr = 1, aux_loss = False):
+        super(RotateGridGen, self).__init__()
+        self.height, self.width = height, width
+        self.aux_loss = aux_loss
+        self.lr = lr
+
+        self.grid = np.zeros( [self.height, self.width, 3], dtype=np.float32)
+        self.grid[:,:,0] = np.expand_dims(np.repeat(np.expand_dims(np.arange(-1, 1, 2.0/self.height), 0), repeats = self.width, axis = 0).T, 0)
+        self.grid[:,:,1] = np.expand_dims(np.repeat(np.expand_dims(np.arange(-1, 1, 2.0/self.width), 0), repeats = self.height, axis = 0), 0)
+        self.grid[:,:,2] = np.ones([self.height, width])
+        self.grid = torch.from_numpy(self.grid.astype(np.float32))
+
+        self.theta = self.grid[:,:,0] * np.pi/2 + np.pi/2
+        self.phi = self.grid[:,:,1] * np.pi
+
+        self.x = torch.sin(self.theta) * torch.cos(self.phi)
+        self.y = torch.sin(self.theta) * torch.sin(self.phi)
+        self.z = torch.cos(self.theta)
+
+        self.grid3d = torch.from_numpy(np.zeros( [self.height, self.width, 4], dtype=np.float32))
+
+        self.grid3d[:,:,0] = self.x
+        self.grid3d[:,:,1] = self.y
+        self.grid3d[:,:,2] = self.z
+        self.grid3d[:,:,3] = self.grid[:,:,2]
+
+
+    def forward(self, grid, rotate):
+        self.batchgrid = torch.zeros(torch.Size([grid.size(0)]) + self.grid.size())
+
+        for i in range(grid.size(0)):
+            self.batchgrid[i] = self.grid
+
+        self.batchgrid = Variable(self.batchgrid)
+
+        if grid.is_cuda:
+            self.batchgrid = self.batchgrid.cuda()
+
+        input_u = rotate.view(-1,1,1,1).repeat(1,self.height, self.width,1)
+
+        output = grid + self.batchgrid[:,:,:,:2]
+
+        output1 = torch.atan(torch.tan(np.pi/2.0*(output[:,:,:,1:2] + self.batchgrid[:,:,:,2:] * input_u[:,:,:,:])))  /(np.pi/2)
+        output2 = torch.cat([output[:,:,:,0:1], output1], 3)
+
+
+        return output2
+
+
