@@ -152,3 +152,7 @@ int BilinearSamplerBHWD_updateGradInputOnlyGrid_cuda(THCudaTensor *inputImages, 
   }
   return 1;
 }
+
+
+
+
