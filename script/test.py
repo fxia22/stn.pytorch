@@ -44,15 +44,16 @@ start = time.time()
 out.backward(input1.data)
 print(input1.grad.size(), 'time:', time.time() - start)
 
-input1 = input1.cuda()
-input2 = input2.cuda()
-
-start = time.time()
-out = s(input1, input2)
-print(out.size(), 'time:', time.time() - start)
-start = time.time()
-out.backward(input1.data)
-print('time:', time.time() - start)
+with torch.cuda.device(3):
+    input1 = input1.cuda()
+    input2 = input2.cuda()
+    start = time.time()
+    out = s(input1, input2)
+    print(out.size(), 'time:', time.time() - start)
+    start = time.time()
+    #out.backward(input1.data.cuda())
+    torch.sum(out).backward()
+    print('time:', time.time() - start)
 
 input = Variable(torch.from_numpy(np.array([[3.6]], dtype=np.float32)), requires_grad = True)
 
