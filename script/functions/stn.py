@@ -48,10 +48,10 @@ class STNFunctionBCHW(Function):
             my_lib.BilinearSamplerBCHW_updateOutput(input1, input2, output)
         else:
             
-            output = output.transpose(1,2).transpose(2,3)
-            input1 = input1.transpose(1,2).transpose(2,3)
-            input2 = input2.transpose(1,2).transpose(2,3)
-            
+            output = output.transpose(1,2).transpose(2,3).contiguous()
+            input1 = input1.transpose(1,2).transpose(2,3).contiguous()
+            input2 = input2.transpose(1,2).transpose(2,3).contiguous()
+            #print(output.size(), input1.size(), input2.size())
             output = output.cuda(self.device)
             my_lib.BilinearSamplerBHWD_updateOutput_cuda(input1, input2, output, self.device_c)
             output = output.transpose(2,3).transpose(1,2)
@@ -65,9 +65,9 @@ class STNFunctionBCHW(Function):
         if not grad_output.is_cuda:
             my_lib.BilinearSamplerBCHW_updateGradInput(self.input1, self.input2, grad_input1, grad_input2, grad_output)
         else:
-            grad_input1 = grad_input1.transpose(1,2).transpose(2,3)
-            grad_input2 = grad_input2.transpose(1,2).transpose(2,3)
-            grad_output = grad_output.transpose(1,2).transpose(2,3)
+            grad_input1 = grad_input1.transpose(1,2).transpose(2,3).contiguous()
+            grad_input2 = grad_input2.transpose(1,2).transpose(2,3).contiguous()
+            grad_output = grad_output.transpose(1,2).transpose(2,3).contiguous()
            
             grad_input1 = grad_input1.cuda(self.device)
             grad_input2 = grad_input2.cuda(self.device)
