@@ -15,7 +15,6 @@ inputImages = torch.randn(nframes, height, width, channels)
 grids = torch.zeros(nframes, height, width, 2)
 
 input1, input2 = Variable(inputImages, requires_grad=True), Variable(grids, requires_grad=True)
-
 input1.data.uniform_()
 input2.data.uniform_(-1,1)
 
@@ -28,6 +27,16 @@ out.backward(out.data)
 
 print input2.size()
 s = STNInvert()
+out = s(input1, input2)
+print(out.size())
+out.backward(input1.data)
+print(input1.grad.size())
+
+
+input1, input2 = Variable(inputImages.cuda(), requires_grad=True), Variable(grids.cuda(), requires_grad=True)
+input1.data.uniform_()
+input2.data.uniform_(-1,1)
+
 out = s(input1, input2)
 print(out.size())
 out.backward(input1.data)
