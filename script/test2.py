@@ -6,10 +6,10 @@ from torch.autograd import Variable
 from modules.stn_invert import STNInvert
 from modules.gridgen import AffineGridGen, CylinderGridGen, CylinderGridGenV2, DenseAffine3DGridGen, DenseAffine3DGridGen_rotate
 
-nframes = 64
+nframes = 12
 height = 64
 width = 128
-channels = 64
+channels = 3
 
 inputImages = torch.randn(nframes, height, width, channels)
 grids = torch.zeros(nframes, height, width, 2)
@@ -33,11 +33,15 @@ out.backward(input1.data)
 print(input1.grad.size())
 
 
-input1, input2 = Variable(inputImages.cuda(), requires_grad=True), Variable(grids.cuda(), requires_grad=True)
-input1.data.uniform_()
-input2.data.uniform_(-1,1)
+#input1, input2 = Variable(inputImages.cuda(0), requires_grad=True), Variable(grids.cuda(0), requires_grad=True)
+#input1.data.uniform_()
+#input2.data.uniform_(-1,1)
 
-out = s(input1, input2)
-print(out.size())
-out.backward(input1.data)
-print(input1.grad.size())
+with torch.cuda.device(0):
+    s = STNInvert()
+    input1 = input1.cuda()
+    input2 = input2.cuda()
+    out = s(input1, input2)
+    print('cuda',out.size())
+    out.backward(input1.data)
+    print('done')

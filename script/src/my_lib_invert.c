@@ -66,7 +66,7 @@ void dot41(real m[3][4], real x[4], real alpha[3]) {
 real min(real * array, int len) {
     real m = array[0];
     int i;
-    for (int i = 0; i < len; i++) 
+    for (i = 0; i < len; i++) 
         if (array[i] < m) m = array[i];
     return m;
 }
@@ -74,7 +74,7 @@ real min(real * array, int len) {
 real max(real * array, int len) {
     real m = array[0];
     int i;
-    for (int i = 0; i < len; i++) 
+    for (i = 0; i < len; i++) 
         if (array[i] > m) m = array[i];
     return m;
 }

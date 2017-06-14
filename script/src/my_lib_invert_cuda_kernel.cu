@@ -187,7 +187,7 @@ __global__ void InvSamplerBHWD_updateOutput(//(THFloatTensor *inputImages, THFlo
       }
     }
   }
-    
+   
   for(b=0; b < batchsize; b++)
   {
     for(yOut=0; yOut < output_height - 1; yOut++)
@@ -783,7 +783,6 @@ int InvSamplerBHWD_updateGradInput_cuda_kernel(
 		gradInputImages_data, 
 		invgrids_data
 		);
-			
 			
 	    cudaError_t err = cudaGetLastError();
 	    if (err != cudaSuccess) {

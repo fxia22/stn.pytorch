@@ -41,7 +41,7 @@ start = time.time()
 out.backward(input1.data)
 print(input1.grad.size(), 'time:', time.time() - start)
 
-with torch.cuda.device(3):
+with torch.cuda.device(0):
     input1 = input1.cuda()
     input2 = input2.cuda()
     start = time.time()
@@ -62,7 +62,7 @@ start = time.time()
 out.backward(input1.data)
 print(input1.grad.size(), 'time:', time.time() - start)
 
-with torch.cuda.device(1):
+with torch.cuda.device(0):
     input1 = input1.cuda()
     input2 = input2.cuda()
     start = time.time()
