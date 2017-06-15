@@ -754,6 +754,8 @@ int InvSamplerBHWD_updateGradInput_cuda_kernel(
 	cudaStream_t stream
 ){
 		
+	printf("%d %d %d %d\n", batchsize, inputImages_height, inputImages_width, inputImages_channels);
+		
 	InvSamplerBHWD_updateGradInput<<<1, 1, 0, stream>>> (
 	    batchsize 					,//= inputImages->size[0];
 	    inputImages_height 			,//= inputImages->size[1];

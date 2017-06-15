@@ -29,12 +29,12 @@ int InvSamplerBHWD_updateOutput_cuda(THCudaTensor *inputImages,
   int success = 0;
   
   success =  InvSamplerBHWD_updateOutput_cuda_kernel(
-	  inputImages->size[0], //int batchsize 			,//= inputImages->size[0];
-	  inputImages->size[1],	//int inputImages_height 	,//= inputImages->size[1];
-	  inputImages->size[2],	//int inputImages_width	 	,//= inputImages->size[2];
-	  output->size[1],		//int output_height 		,//= output->size[1];
-	  output->size[2],		//int output_width 			,//= output->size[2];
-	  inputImages->size[3],	//int inputImages_channels 	,//= inputImages->size[3];
+	  THCudaTensor_size(state, inputImages, 0), //int batchsize 			,//= inputImages->size[0];
+	  THCudaTensor_size(state, inputImages, 1),	//int inputImages_height 	,//= inputImages->size[1];
+	  THCudaTensor_size(state, inputImages, 2),	//int inputImages_width	 	,//= inputImages->size[2];
+	  THCudaTensor_size(state, output, 1),		//int output_height 		,//= output->size[1];
+	  THCudaTensor_size(state, output, 2),		//int output_width 			,//= output->size[2];
+	  THCudaTensor_size(state, inputImages, 3),	//int inputImages_channels 	,//= inputImages->size[3];
 	  THCudaTensor_stride(state, output, 0),//int output_strideBatch 	,//= output->stride[0];
 	  THCudaTensor_stride(state, output, 1),//int output_strideHeight 	,//= output->stride[1];
 	  THCudaTensor_stride(state, output, 2),//int output_strideWidth 	,//= output->stride[2];
@@ -107,12 +107,12 @@ int InvSamplerBHWD_updateGradInput_cuda(THCudaTensor *inputImages,
   int success = 0;
   
   success = InvSamplerBHWD_updateGradInput_cuda_kernel(
-    inputImages->size[0],//int batchsize 					,//= inputImages->size[0];
-    inputImages->size[1],//int inputImages_height 			,//= inputImages->size[1];
-    inputImages->size[2],//int inputImages_width 			,//= inputImages->size[2];
-    gradOutput->size[1],//int gradOutput_height 			,//= gradOutput->size[1];
-    gradOutput->size[2],//int gradOutput_width 				,//= gradOutput->size[2];
-   	inputImages->size[3], //int inputImages_channels 			,//= inputImages->size[3];
+    THCudaTensor_size(state, inputImages, 0),//int batchsize 					,//= inputImages->size[0];
+    THCudaTensor_size(state, inputImages, 1),//int inputImages_height 			,//= inputImages->size[1];
+    THCudaTensor_size(state, inputImages, 2),//int inputImages_width 			,//= inputImages->size[2];
+    THCudaTensor_size(state, gradOutput, 1),//int gradOutput_height 			,//= gradOutput->size[1];
+    THCudaTensor_size(state, gradOutput, 2),//int gradOutput_width 				,//= gradOutput->size[2];
+   	THCudaTensor_size(state, inputImages, 3), //int inputImages_channels 			,//= inputImages->size[3];
     THCudaTensor_stride(state, gradOutput, 0),//int gradOutput_strideBatch 		,//= gradOutput->stride[0];
     THCudaTensor_stride(state, gradOutput, 1),//int gradOutput_strideHeight 		,//= gradOutput->stride[1];
     THCudaTensor_stride(state, gradOutput, 2),//int gradOutput_strideWidth 		,//= gradOutput->stride[2];
