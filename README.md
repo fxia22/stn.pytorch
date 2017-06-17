@@ -6,7 +6,7 @@ Ported from https://github.com/qassemoquab/stnbhwd according to pytorch tutorial
 
 ```
 cd script
-./make.sh
+./make.sh #build cuda code, don't forget to modify -arch argument for your GPU computational capacity version
 python build.py
 python test.py
 ```
