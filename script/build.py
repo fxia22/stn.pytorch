@@ -11,14 +11,14 @@ with_cuda = False
 
 if torch.cuda.is_available():
     print('Including CUDA code.')
-    sources += ['src/my_lib_cuda.c']
-    headers += ['src/my_lib_cuda.h']
+    sources += ['src/my_lib_cuda.c', 'src/my_lib_invert_cuda.c']
+    headers += ['src/my_lib_cuda.h', 'src/my_lib_invert_cuda.h']
     defines += [('WITH_CUDA', None)]
     with_cuda = True
 
 this_file = os.path.dirname(os.path.realpath(__file__))
 print(this_file)
-extra_objects = ['src/my_lib_cuda_kernel.cu.o']
+extra_objects = ['src/my_lib_cuda_kernel.cu.o', 'src/my_lib_invert_cuda_kernel.cu.o']
 extra_objects = [os.path.join(this_file, fname) for fname in extra_objects]
 
 ffi = create_extension(

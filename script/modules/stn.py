@@ -1,9 +1,12 @@
 from torch.nn.modules.module import Module
-from functions.stn import STNFunction
+from functions.stn import STNFunction, STNFunctionBCHW
 
 class STN(Module):
-    def __init__(self):
+    def __init__(self, layout = 'BHWD'):
         super(STN, self).__init__()
-        self.f = STNFunction()
+        if layout == 'BHWD':
+            self.f = STNFunction()
+        else:
+            self.f = STNFunctionBCHW()
     def forward(self, input1, input2):
         return self.f(input1, input2)

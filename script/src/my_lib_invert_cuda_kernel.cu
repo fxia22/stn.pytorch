@@ -1,10 +1,10 @@
-#include <TH/TH.h>
+//#include <TH/TH.h>
 #include <stdbool.h>
 #include <stdio.h>
-
+#include "my_lib_invert_cuda_kernel.h"
 #define real float
 
-void dot43(real A[4][3], real B[3][3]) {
+__device__  void dot43(real A[4][3], real B[3][3]) {
     int i,j,k;
     for (i = 0; i<3; i++)
     {
@@ -20,7 +20,7 @@ void dot43(real A[4][3], real B[3][3]) {
 }
 
 
-void inv3(real B[3][3], real invB[3][3]) {
+__device__  void inv3(real B[3][3], real invB[3][3]) {
     float determinant = +B[0][0]*(B[1][1]*B[2][2]-B[2][1]*B[1][2])
                         -B[0][1]*(B[1][0]*B[2][2]-B[1][2]*B[2][0])
                         +B[0][2]*(B[1][0]*B[2][1]-B[1][1]*B[2][0]);
@@ -40,7 +40,7 @@ void inv3(real B[3][3], real invB[3][3]) {
 }
     
 
-void dot34(real invB[3][3], real A[4][3], real m[3][4]) {
+__device__  void dot34(real invB[3][3], real A[4][3], real m[3][4]) {
     int i, j, k;
     for (i = 0; i < 3; i++)
         for (j = 0; j < 4; j++){
@@ -52,7 +52,7 @@ void dot34(real invB[3][3], real A[4][3], real m[3][4]) {
 }
 
 
-void dot41(real m[3][4], real x[4], real alpha[3]) {
+__device__  void dot41(real m[3][4], real x[4], real alpha[3]) {
     int i,j;
     for (i = 0; i < 3; i++) {
         alpha[i] = 0;
@@ -63,24 +63,24 @@ void dot41(real m[3][4], real x[4], real alpha[3]) {
     //printf("\n");
 }
 
-real min(real * array, int len) {
+__device__  real min(real * array, int len) {
     real m = array[0];
     int i;
-    for (i = 0; i < len; i++) 
+    for (int i = 0; i < len; i++) 
         if (array[i] < m) m = array[i];
     return m;
 }
 
-real max(real * array, int len) {
+__device__  real max(real * array, int len) {
     real m = array[0];
     int i;
-    for (i = 0; i < len; i++) 
+    for (int i = 0; i < len; i++) 
         if (array[i] > m) m = array[i];
     return m;
 }
 
 
-void dot21(real im2[2][2], real d[2], real r[2]) {
+__device__  void dot21(real im2[2][2], real d[2], real r[2]) {
     int i,j;
     for (i = 0; i < 2; i++) {
         r[i] = 0;
@@ -91,7 +91,7 @@ void dot21(real im2[2][2], real d[2], real r[2]) {
 
 
 
-void dot22(real m1[2][2], real m2[2][2], real result[2][2]) {
+__device__  void dot22(real m1[2][2], real m2[2][2], real result[2][2]) {
     int i,j,k;
     for (i = 0; i < 2; i++ )
         for (j = 0; j < 2; j++)
@@ -103,7 +103,7 @@ void dot22(real m1[2][2], real m2[2][2], real result[2][2]) {
 }
 
 
-void dot32(real gradalphar[3][2], real gradr[2], real gradalpha[3]) {
+__device__  void dot32(real gradalphar[3][2], real gradr[2], real gradalpha[3]) {
     int i,j;
     for (i = 0; i < 3; i++) {
         gradalpha[i] = 0;
@@ -113,7 +113,7 @@ void dot32(real gradalphar[3][2], real gradr[2], real gradalpha[3]) {
 }
 
 
-void inv2(real m2[2][2], real im2[2][2]) {
+__device__  void inv2(real m2[2][2], real im2[2][2]) {
    real determinant = m2[0][0] * m2[1][1] - m2[0][1] * m2[1][0];
    //printf("det %.5f\n", determinant);
    im2[0][0] = m2[1][1] / determinant;
@@ -122,7 +122,7 @@ void inv2(real m2[2][2], real im2[2][2]) {
    im2[1][0] = -m2[1][0] / determinant;
 }
 
-void dot34t(real m[3][4], real alpha[3], real gradx[4]) {
+__device__  void dot34t(real m[3][4], real alpha[3], real gradx[4]) {
     int i,j;
     for (i = 0; i < 4; i++) {
         gradx[i] = 0;
@@ -131,49 +131,41 @@ void dot34t(real m[3][4], real alpha[3], real gradx[4]) {
     }
 }
 
-real abs_real(real num) {
+__device__  real abs_real(real num) {
     return (num > 0)?num:-num;
 }
-    
-int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *output, THFloatTensor *depth_map)
-{
-
-  int batchsize = inputImages->size[0];
-  int inputImages_height = inputImages->size[1];
-  int inputImages_width = inputImages->size[2];
-  int output_height = output->size[1];
-  int output_width = output->size[2];
-  int inputImages_channels = inputImages->size[3];
-
-  int output_strideBatch = output->stride[0];
-  int output_strideHeight = output->stride[1];
-  int output_strideWidth = output->stride[2];
-    
-  int depth_strideBatch = depth_map->stride[0];
-  int depth_strideHeight = depth_map->stride[1];
-  int depth_strideWidth = depth_map->stride[2];
-
-
-  int inputImages_strideBatch = inputImages->stride[0];
-  int inputImages_strideHeight = inputImages->stride[1];
-  int inputImages_strideWidth = inputImages->stride[2];
-
-  int grids_strideBatch = grids->stride[0];
-  int grids_strideHeight = grids->stride[1];
-  int grids_strideWidth = grids->stride[2];
-
-
-  real *inputImages_data, *output_data, *grids_data, *invgrids_data, *depth_data;
-  inputImages_data = THFloatTensor_data(inputImages);
-  output_data = THFloatTensor_data(output);
-  grids_data = THFloatTensor_data(grids);
-  invgrids_data = THFloatTensor_data(invgrids);
-    
-  depth_data = THFloatTensor_data(depth_map);  
-    
-  real * target_depth_data = (real *)malloc(sizeof(real) * output_height * output_width * batchsize);
-    
-
+   
+__global__ void test(float * a, float * b, int c, int d) {
+	
+} 
+__global__ void InvSamplerBHWD_updateOutput(//(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *output, THFloatTensor *depth_map)
+  int batchsize 			,//= inputImages->size[0];
+  int inputImages_height 	,//= inputImages->size[1];
+  int inputImages_width	 	,//= inputImages->size[2];
+  int output_height 		,//= output->size[1];
+  int output_width 			,//= output->size[2];
+  int inputImages_channels 	,//= inputImages->size[3];
+  int output_strideBatch 	,//= output->stride[0];
+  int output_strideHeight 	,//= output->stride[1];
+  int output_strideWidth 	,//= output->stride[2];
+  int depth_strideBatch 	,//= depth_map->stride[0];
+  int depth_strideHeight 	,//= depth_map->stride[1];
+  int depth_strideWidth 	,//= depth_map->stride[2];
+  int inputImages_strideBatch 	,//= inputImages->stride[0];
+  int inputImages_strideHeight 	,//= inputImages->stride[1];
+  int inputImages_strideWidth 	,//= inputImages->stride[2];
+  int grids_strideBatch 	,//= grids->stride[0];
+  int grids_strideHeight 	,//= grids->stride[1];
+  int grids_strideWidth 	,//= grids->stride[2];
+  float *inputImages_data, float *output_data, float *grids_data, float *invgrids_data, float *depth_data,
+  float *target_depth_data) //= (real *)malloc(sizeof(real) * output_height * output_width * batchsize);
+  //inputImages_data = THFloatTensor_data(inputImages);
+  //output_data = THFloatTensor_data(output);
+  //grids_data = THFloatTensor_data(grids);
+  //invgrids_data = THFloatTensor_data(invgrids);
+  //depth_data = THFloatTensor_data(depth_map);  
+  {
+ 
   int tradeb, yOut, xOut, k;
 
   real x[4], y[4], alpha[3], beta[3];
@@ -195,7 +187,7 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
       }
     }
   }
-    
+   
   for(b=0; b < batchsize; b++)
   {
     for(yOut=0; yOut < output_height - 1; yOut++)
@@ -239,7 +231,6 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
         float dx2 = x[1] - x[0];
         float dy2 = y[1] - y[0];
         float normal = (dx1 * dy2) - (dx2 * dy1);
-          
           
         
         real m[3][4] = {{ 0.7500,    0.2500,    0.2500,   -0.2500},{-0.5000,   -0.5000,    0.5000,    0.5000},{-0.5000,    0.5000,   -0.5000,    0.5000}};  
@@ -376,53 +367,42 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
     }
   }
 
-  free(target_depth_data);
-  return 1;
+  //free(target_depth_data);
+  return;
 }
 
-int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *gradInputImages, THFloatTensor *gradGrids, THFloatTensor *gradOutput)
+__global__ void InvSamplerBHWD_updateGradInput//(THFloatTensor *inputImages, THFloatTensor *grids, THFloatTensor *invgrids, THFloatTensor *gradInputImages, THFloatTensor *gradGrids, THFloatTensor *gradOutput)
+(
+  int batchsize 					,//= inputImages->size[0];
+  int inputImages_height 			,//= inputImages->size[1];
+  int inputImages_width 			,//= inputImages->size[2];
+  int gradOutput_height 			,//= gradOutput->size[1];
+  int gradOutput_width 				,//= gradOutput->size[2];
+  int inputImages_channels 			,//= inputImages->size[3];
+  int gradOutput_strideBatch 		,//= gradOutput->stride[0];
+  int gradOutput_strideHeight 		,//= gradOutput->stride[1];
+  int gradOutput_strideWidth 		,//= gradOutput->stride[2];
+  int inputImages_strideBatch 		,//= inputImages->stride[0];
+  int inputImages_strideHeight 		,//= inputImages->stride[1];
+  int inputImages_strideWidth 		,//= inputImages->stride[2];
+  int gradInputImages_strideBatch 	,//= gradInputImages->stride[0];
+  int gradInputImages_strideHeight 	,//= gradInputImages->stride[1];
+  int gradInputImages_strideWidth 	,//= gradInputImages->stride[2];
+  int grids_strideBatch 			,//= grids->stride[0];
+  int grids_strideHeight 			,//= grids->stride[1];
+  int grids_strideWidth 			,//= grids->stride[2];
+  int gradGrids_strideBatch 		,//= gradGrids->stride[0];
+  int gradGrids_strideHeight 		,//= gradGrids->stride[1];
+  int gradGrids_strideWidth 		,//= gradGrids->stride[2];
+  float *inputImages_data, float *gradOutput_data,  float *grids_data,  float *gradGrids_data, float *gradInputImages_data, float *invgrids_data)
 {
+  //inputImages_data = THFloatTensor_data(inputImages);
+  //gradOutput_data = THFloatTensor_data(gradOutput);
+  //grids_data = THFloatTensor_data(grids);
+  //invgrids_data = THFloatTensor_data(invgrids);
+  //gradGrids_data = THFloatTensor_data(gradGrids);
+  //gradInputImages_data = THFloatTensor_data(gradInputImages);
   bool onlyGrid=false;
-
-  int batchsize = inputImages->size[0];
-  int inputImages_height = inputImages->size[1];
-  int inputImages_width = inputImages->size[2];
-  int gradOutput_height = gradOutput->size[1];
-  int gradOutput_width = gradOutput->size[2];
-  int inputImages_channels = inputImages->size[3];
-
-  int gradOutput_strideBatch = gradOutput->stride[0];
-  int gradOutput_strideHeight = gradOutput->stride[1];
-  int gradOutput_strideWidth = gradOutput->stride[2];
-
-  int inputImages_strideBatch = inputImages->stride[0];
-  int inputImages_strideHeight = inputImages->stride[1];
-  int inputImages_strideWidth = inputImages->stride[2];
-
-  int gradInputImages_strideBatch = gradInputImages->stride[0];
-  int gradInputImages_strideHeight = gradInputImages->stride[1];
-  int gradInputImages_strideWidth = gradInputImages->stride[2];
-
-  int grids_strideBatch = grids->stride[0];
-  int grids_strideHeight = grids->stride[1];
-  int grids_strideWidth = grids->stride[2];
-
-  int gradGrids_strideBatch = gradGrids->stride[0];
-  int gradGrids_strideHeight = gradGrids->stride[1];
-  int gradGrids_strideWidth = gradGrids->stride[2];
-   
-
-
-  real *inputImages_data, *gradOutput_data, *grids_data, *gradGrids_data, *gradInputImages_data, *invgrids_data;
-  
-  inputImages_data = THFloatTensor_data(inputImages);
-  gradOutput_data = THFloatTensor_data(gradOutput);
-  grids_data = THFloatTensor_data(grids);
-  invgrids_data = THFloatTensor_data(invgrids);
-    
-  gradGrids_data = THFloatTensor_data(gradGrids);
-  gradInputImages_data = THFloatTensor_data(gradInputImages);
-
   int b, yOut, xOut;
    
   for(b=0; b < batchsize; b++)
@@ -669,13 +649,156 @@ int InvSamplerBHWD_updateGradInput(THFloatTensor *inputImages, THFloatTensor *gr
               
               gradGrids_data[gridinBottomRightAddress] += grady[3];
               gradGrids_data[gridinBottomRightAddress + 1] += gradx[3];
-              
-          
+                   
           }
-           
       }
     }
    }
 
-  return 1;
+  return;
 }
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+int InvSamplerBHWD_updateOutput_cuda_kernel(
+	int batchsize 			,//= inputImages->size[0];
+  int inputImages_height 	,//= inputImages->size[1];
+  int inputImages_width	 	,//= inputImages->size[2];
+  int output_height 		,//= output->size[1];
+  int output_width 			,//= output->size[2];
+  int inputImages_channels 	,//= inputImages->size[3];
+  int output_strideBatch 	,//= output->stride[0];
+  int output_strideHeight 	,//= output->stride[1];
+  int output_strideWidth 	,//= output->stride[2];
+  int depth_strideBatch 	,//= depth_map->stride[0];
+  int depth_strideHeight 	,//= depth_map->stride[1];
+  int depth_strideWidth 	,//= depth_map->stride[2];
+  int inputImages_strideBatch 	,//= inputImages->stride[0];
+  int inputImages_strideHeight 	,//= inputImages->stride[1];
+  int inputImages_strideWidth 	,//= inputImages->stride[2];
+  int grids_strideBatch 	,//= grids->stride[0];
+  int grids_strideHeight 	,//= grids->stride[1];
+  int grids_strideWidth 	,//= grids->stride[2];
+  float *inputImages_data, float *output_data, float *grids_data, float *invgrids_data, float *depth_data,
+  float *target_depth_data,
+  cudaStream_t stream
+)
+{
+	InvSamplerBHWD_updateOutput<<<1, 1, 0, stream>>> (
+	  batchsize 			,//= inputImages->size[0];
+	  inputImages_height 	,//= inputImages->size[1];
+	  inputImages_width	 	,//= inputImages->size[2];
+	  output_height 		,//= output->size[1];
+	  output_width 			,//= output->size[2];
+	  inputImages_channels 	,//= inputImages->size[3];
+	  output_strideBatch 	,//= output->stride[0];
+	  output_strideHeight 	,//= output->stride[1];
+	  output_strideWidth 	,//= output->stride[2];
+	  depth_strideBatch 	,//= depth_map->stride[0];
+	  depth_strideHeight 	,//= depth_map->stride[1];
+	  depth_strideWidth 	,//= depth_map->stride[2];
+	  inputImages_strideBatch 	,//= inputImages->stride[0];
+	  inputImages_strideHeight 	,//= inputImages->stride[1];
+	  inputImages_strideWidth 	,//= inputImages->stride[2];
+	  grids_strideBatch 	,//= grids->stride[0];
+	  grids_strideHeight 	,//= grids->stride[1];
+	  grids_strideWidth 	,//= grids->stride[2];
+	  inputImages_data, 
+	  output_data, 
+	  grids_data, 
+	  invgrids_data, 
+	  depth_data,
+	  target_depth_data
+	);
+	
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+      printf("error in BilinearSampler.updateGradInput: %s\n", cudaGetErrorString(err));
+      //THError("aborting");
+      return 0;
+    }
+    return 1;
+}
+
+int InvSamplerBHWD_updateGradInput_cuda_kernel(
+    int batchsize 					,//= inputImages->size[0];
+    int inputImages_height 			,//= inputImages->size[1];
+    int inputImages_width 			,//= inputImages->size[2];
+    int gradOutput_height 			,//= gradOutput->size[1];
+    int gradOutput_width 				,//= gradOutput->size[2];
+    int inputImages_channels 			,//= inputImages->size[3];
+    int gradOutput_strideBatch 		,//= gradOutput->stride[0];
+    int gradOutput_strideHeight 		,//= gradOutput->stride[1];
+    int gradOutput_strideWidth 		,//= gradOutput->stride[2];
+    int inputImages_strideBatch 		,//= inputImages->stride[0];
+    int inputImages_strideHeight 		,//= inputImages->stride[1];
+    int inputImages_strideWidth 		,//= inputImages->stride[2];
+    int gradInputImages_strideBatch 	,//= gradInputImages->stride[0];
+    int gradInputImages_strideHeight 	,//= gradInputImages->stride[1];
+    int gradInputImages_strideWidth 	,//= gradInputImages->stride[2];
+    int grids_strideBatch 			,//= grids->stride[0];
+    int grids_strideHeight 			,//= grids->stride[1];
+    int grids_strideWidth 			,//= grids->stride[2];
+    int gradGrids_strideBatch 		,//= gradGrids->stride[0];
+    int gradGrids_strideHeight 		,//= gradGrids->stride[1];
+    int gradGrids_strideWidth 		,//= gradGrids->stride[2];
+    float *inputImages_data, 
+	float *gradOutput_data,  
+	float *grids_data,  
+	float *gradGrids_data, 
+	float *gradInputImages_data, 
+	float *invgrids_data,
+	cudaStream_t stream
+){
+		
+	printf("%d %d %d %d\n", batchsize, inputImages_height, inputImages_width, inputImages_channels);
+		
+	InvSamplerBHWD_updateGradInput<<<1, 1, 0, stream>>> (
+	    batchsize 					,//= inputImages->size[0];
+	    inputImages_height 			,//= inputImages->size[1];
+	    inputImages_width 			,//= inputImages->size[2];
+	    gradOutput_height 			,//= gradOutput->size[1];
+	    gradOutput_width 				,//= gradOutput->size[2];
+	    inputImages_channels 			,//= inputImages->size[3];
+	    gradOutput_strideBatch 		,//= gradOutput->stride[0];
+	    gradOutput_strideHeight 		,//= gradOutput->stride[1];
+	    gradOutput_strideWidth 		,//= gradOutput->stride[2];
+	    inputImages_strideBatch 		,//= inputImages->stride[0];
+	    inputImages_strideHeight 		,//= inputImages->stride[1];
+	    inputImages_strideWidth 		,//= inputImages->stride[2];
+	    gradInputImages_strideBatch 	,//= gradInputImages->stride[0];
+	    gradInputImages_strideHeight 	,//= gradInputImages->stride[1];
+	    gradInputImages_strideWidth 	,//= gradInputImages->stride[2];
+	    grids_strideBatch 			,//= grids->stride[0];
+	    grids_strideHeight 			,//= grids->stride[1];
+	    grids_strideWidth 			,//= grids->stride[2];
+	    gradGrids_strideBatch 		,//= gradGrids->stride[0];
+	    gradGrids_strideHeight 		,//= gradGrids->stride[1];
+	    gradGrids_strideWidth 		,//= gradGrids->stride[2];
+	    inputImages_data, 
+		gradOutput_data,  
+		grids_data,  
+		gradGrids_data, 
+		gradInputImages_data, 
+		invgrids_data
+		);
+			
+	    cudaError_t err = cudaGetLastError();
+	    if (err != cudaSuccess) {
+	      printf("error in BilinearSampler.updateGradInput: %s\n", cudaGetErrorString(err));
+	      //THError("aborting");
+	      return 0;
+	    }
+	    return 1;	
+		
+}
+
+
+
+
+#ifdef __cplusplus
+}
+#endif
