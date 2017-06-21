@@ -333,43 +333,38 @@ int InvSamplerBHWD_updateOutput(THFloatTensor *inputImages, THFloatTensor *grids
                         
                         int t;          
                         
-                        for(t=0; t<inputImages_channels; t++)
-                        {
-                           if(topLeftIsIn) inTopLeft = inputImages_data[inTopLeftAddress + t];
-                           if(topRightIsIn) inTopRight = inputImages_data[inTopRightAddress + t];
-                           if(bottomLeftIsIn) inBottomLeft = inputImages_data[inBottomLeftAddress + t];
-                           if(bottomRightIsIn) inBottomRight = inputImages_data[inBottomRightAddress + t];
+                        
 
-                           v = xWeightTopLeft * yWeightTopLeft * inTopLeft
-                             + (1 - xWeightTopLeft) * yWeightTopLeft * inTopRight
-                             + xWeightTopLeft * (1 - yWeightTopLeft) * inBottomLeft
-                             + (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * inBottomRight;
-
-                           if (scaling < 36){
+                           //if (scaling < 36){
                            if (outIsIn)
-                           if ((depth_data[indepthAddress] < target_depth_data[outdepthAddress]) && (depth_data[indepthAddress] > 0))
-                               output_data[outAddress + t] = v;
+                           {
+                           
+                               if ((scaling < 36) && ((depth_data[indepthAddress] < target_depth_data[outdepthAddress]) && (depth_data[indepthAddress] > 0)))
+							   {
+                                   for(t=0; t<inputImages_channels; t++)
+                                    {
+                                       if(topLeftIsIn) inTopLeft = inputImages_data[inTopLeftAddress + t];
+                                       if(topRightIsIn) inTopRight = inputImages_data[inTopRightAddress + t];
+                                       if(bottomLeftIsIn) inBottomLeft = inputImages_data[inBottomLeftAddress + t];
+                                       if(bottomRightIsIn) inBottomRight = inputImages_data[inBottomRightAddress + t];
+            
+                                       v = xWeightTopLeft * yWeightTopLeft * inTopLeft
+                                         + (1 - xWeightTopLeft) * yWeightTopLeft * inTopRight
+                                         + xWeightTopLeft * (1 - yWeightTopLeft) * inBottomLeft
+                                         + (1 - xWeightTopLeft) * (1 - yWeightTopLeft) * inBottomRight;
+                                   
+                                       output_data[outAddress + t] = v;
+                                   }
+                                   invgrids_data[outGridAddress] = (float)yOut;
+                                   invgrids_data[outGridAddress+1] = (float)xOut;
+                                   target_depth_data[outdepthAddress] = depth_data[indepthAddress];
+                               }
+                           
                            }
-                            else {
-                                if (outIsIn) {
-                                output_data[outAddress + t] = 0;
-                                target_depth_data[outdepthAddress] = 0;
-                                }
-                            }
                         
-                        }
                         
-                        if (outIsIn)
-                        if ((depth_data[indepthAddress] < target_depth_data[outdepthAddress]) && (depth_data[indepthAddress] > 0)) {
-                             invgrids_data[outGridAddress] = (float)yOut;
-                             invgrids_data[outGridAddress+1] = (float)xOut; // x - [+1], y - [0]
-                        }
                         
-                        if (outIsIn)
-                        if ((depth_data[indepthAddress] < target_depth_data[outdepthAddress]) && (depth_data[indepthAddress] > 0)) {
-                            target_depth_data[outdepthAddress] = depth_data[indepthAddress];
-                        }
-                    } 
+                    }
         }
 
       }
